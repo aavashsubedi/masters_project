@@ -1,0 +1,33 @@
+project_name: "combinatorial_optimisation"
+name: "example"
+seed: "42"
+num_workers: 0
+
+sampler: "default"
+
+#wandb
+metric: "loss"
+wandb: "online"
+tracking_metric: "loss"
+
+
+#directories to change 
+data_dir: ""
+chkpt_dir: ""
+logs_dir: ""
+weights_dir: ""
+
+#for the basic cnn model
+cnn_layers: "3"
+cnn_hidden: "64"
+cnn_kernel_size: "3"
+
+#for optimiser
+lr: "0.001"
+weight_deacay: 0
+gradient_clipping: 0
+dropout: 0  
+batchnorm_eps: 0.1
+
+#early_stopping
+patience: 7
