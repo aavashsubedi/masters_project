@@ -31,3 +31,6 @@ batchnorm_eps: 0.1
 
 #early_stopping
 patience: 7
+
+#dataset
+warcraft_tile: "12"
