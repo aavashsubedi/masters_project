@@ -28,9 +28,11 @@ weight_deacay: 0
 gradient_clipping: 0
 dropout: 0  
 batchnorm_eps: 0.1
+scheduler: False #if True we use OnecycleLR (behaves like cosine with annealing)
 
 #early_stopping
 patience: 7
+num_epochs: 50
 
 #dataset
 warcraft_tile: "12"

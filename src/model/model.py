@@ -1,29 +1,15 @@
 import torch
-<<<<<<< HEAD
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
 
-def forward_pass(input, solver=dijkstra): # Include this fn in the architecture of the model
-    input = input.detach().cpu().numpy()
-    output = solver(input) # Inputs for dijkstra algo
-    log_input_output(input, output) # decide how to save params!!
-    
-    return output
-
-def backward_pass(grad, lambda_val, solver=dikkstra): # Include this fn in the architecture of the model
-    input, output = load_input_output()
-    input += param * grad
-    perturbed_output = solver(input)
-
-    gradient = -(1/lambda_val) * (perturbed_output - output)
-
-    return gradient.to(device)
-=======
 import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torch.nn.functional as F
 from math import sqrt
+
+
+
 
 class CombRenset18(nn.Module):
 
@@ -59,9 +45,23 @@ def get_model(cfg, warcraft_experiment=True):
         return resnet_module
 
 
+def forward_pass(input, solver=dijkstra): # Include this fn in the architecture of the model
+    input = input.detach().cpu().numpy()
+    output = solver(input) # Inputs for dijkstra algo
+    log_input_output(input, output) # decide how to save params!!
+    
+    return output
+
+def backward_pass(grad, lambda_val, solver=dikkstra): # Include this fn in the architecture of the model
+    input, output = load_input_output()
+    input += param * grad
+    perturbed_output = solver(input)
+
+    gradient = -(1/lambda_val) * (perturbed_output - output)
+
+    return gradient.to(device)
 
 # class CNNModel(nn.Module):
 #     def __init__(self, cfg):
 #         super(CNNModel, self).__init__()
         
->>>>>>> c537756ef4e0adfcb1e61a61f18ef892eb9e27ab
