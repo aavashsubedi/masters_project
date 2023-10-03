@@ -5,37 +5,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on
 
 def hamming_loss(suggested, target):
     errors = suggested * (1.0 - target) + (1.0 - suggested) * target
+
     return errors.mean(dim=0).sum()
 
-
-class Graph():
- 
-    def __init__(self, vertices):
-        self.V = vertices
-        self.graph = [[0 for column in range(vertices)]
-                      for row in range(vertices)]
- 
-    def printSolution(self, dist):
-        print("Vertex \t Distance from Source")
-        for node in range(self.V):
-            print(node, "\t\t", dist[node])
- 
-    # A utility function to find the vertex with
-    # minimum distance value, from the set of vertices
-    # not yet included in shortest path tree
-    def minDistance(self, dist, prev_dist):
- 
-        # Initialize minimum distance for next node
-        min = 1e7
- 
-        # Search not nearest vertex not in the
-        # shortest path tree
-        for v in range(self.V):
-            if dist[v] < min and sptSet[v] == False:
-                min = dist[v]
-                min_index = v
- 
-        return min_index
  
     # Function that implements Dijkstra's single source
     # shortest path algorithm for a graph represented
@@ -70,14 +42,11 @@ class Graph():
         self.printSolution(dist)
 
 
-
-
-
-
 class Graph:
     def __init__(self, vertices):
         super(Graph, self).__init__()
         self.vertices = vertices
+        self.matrix = np.zeros((len(self.vertices), len(self.vertices)))
         self.solver = ShortestPath(lambda_val=lambda_val, neighbourhood_fn=self.neighbourhood_fn)
         self.loss_fn = HammingLoss()
 
@@ -93,38 +62,20 @@ class Graph:
 
 
     def dijkstra(graph, source_node):
+        """
+        Dijkstra's Algorithm to return an adjacency matrix. Pass in a graph object
+        """
         distance = np.full((0, graph.vertices), 1e9) # Some large initialisation
-        previous_distance = np.zeros((0, graph.vertices))
+        shortest_paths = numpy.full((0, graph.vertices), False)
+
+        for _ in range(graph.vertices):
+            u = shortest_distance(distance, shortest_paths)
+            shortest_paths[u] = True # Indicating we looked at this node
+
+            for v in range(graph.vertices):
+                # If not the source node or one we looked at before, and the distance is greater than the previous one:
+                if (graph[u][v] > 0 and sptSet[v] == False and distance[v] > distance[u] + graph.matrix[u][v]):
+                    distance[v] = distance[u] + graph[u][v]
 
 
 
-
-
-  function Dijkstra(Graph, source):
- 2      
- 3      for each vertex v in Graph.Vertices:
- 4          dist[v] ← INFINITY
- 5          prev[v] ← UNDEFINED
- 6          add v to Q
- 7      dist[source] ← 0
- 8      
- 9      while Q is not empty:
-10          u ← vertex in Q with min dist[u]
-11          remove u from Q
-12          
-13          for each neighbor v of u still in Q:
-14              alt ← dist[u] + Graph.Edges(u, v)
-15              if alt < dist[v]:
-16                  dist[v] ← alt
-17                  prev[v] ← u
-18
-19      return dist[], prev[]
-
-If we are only interested in a shortest path between vertices source and target, we can terminate the search after line 10 if u = target. Now we can read the shortest path from source to target by reverse iteration:
-
-1  S ← empty sequence
-2  u ← target
-3  if prev[u] is defined or u = source:          // Do something only if the vertex is reachable
-4      while u is defined:                       // Construct the shortest path with a stack S
-5          insert u at the beginning of S        // Push the vertex onto the stack
-6          u ← prev[u]  
