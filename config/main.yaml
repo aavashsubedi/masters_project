@@ -12,7 +12,7 @@ tracking_metric: "loss"
 
 
 #directories to change 
-data_dir: ""
+data_dir: "/workspaces/masters_project/data/warcraft_shortest_path_oneskin"
 chkpt_dir: ""
 logs_dir: ""
 weights_dir: ""
@@ -34,3 +34,5 @@ patience: 7
 
 #dataset
 warcraft_tile: "12"
+normalise: true
+batch_size: 32
