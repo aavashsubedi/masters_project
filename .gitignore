@@ -1,2 +1,4 @@
 mphys/
 data/
+outputs/
+wandb/
