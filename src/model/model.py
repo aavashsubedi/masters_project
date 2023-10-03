@@ -50,7 +50,7 @@ def forward_pass(input, solver=dijkstra): # Include this fn in the architecture 
     output = solver(input) # Inputs for dijkstra algo
     log_input_output(input, output) # decide how to save params!!
     
-    return output
+    return output # What is the correct form for CNN?
 
 def backward_pass(grad, lambda_val, solver=dikkstra): # Include this fn in the architecture of the model
     input, output = load_input_output()

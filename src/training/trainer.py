@@ -5,6 +5,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 from tqdm import tqdm
 from src.utils.visualise_gradients import plot_grad_flow
 import wandb
+
+
 def trainer(cfg, train_dataloader, val_dataloader,
             test_dataloader, model):
     optimizer = get_optimizer(cfg, model)
