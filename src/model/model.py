@@ -8,6 +8,7 @@ import torchvision
 import torch.nn.functional as F
 from .loss import HammingLoss
 from math import sqrt
+from combinatorial_solvers import Dijkstra
 
 class CombRenset18(nn.Module):
 
@@ -36,14 +37,35 @@ class CombRenset18(nn.Module):
     
 class GradientApproximator():
 
-    def __init__(self):
+    def __init__(self, model):
         self.input = None
         self.output = None
         self.prev_input = None
-        self.loss = HammingLoss()
-        self.combinatorial_solver = Dj
+        self.curr_output = None
+        self.lambda_val = 0.1
+        self.model = model
+        #self.loss = HammingLoss()
+        self.combinatorial_solver = Dijkstra()
+        self.labels = None
+        self.cnn_loss = None
 
-    def compute_grads(self, input):
+    def forward_pass(self, input):
+        if self.prev_input == None:
+            #take the shape of the input and create a tensor of random numbers with the same shape
+            self.prev_input = torch.rand(input.shape)
+
+        self.cnn_input = input.detach().cpu().numpy()
+        self.output = self.combinatorial_solver(self.cnn_input)
+        self.prev_input = self.output
+
+    def backward_pass(self, input):
+        #input to the backward pass is from the forward pass before djikstra and after djikstra
+        perturbed_cnn_output = self.lambda_val * self.cnn_input + self.cnn_loss.grad()
+        """
+        What they do is
+        """
+
+        
     
 
 
@@ -65,7 +87,7 @@ def forward_pass(input, solver=dijkstra): # Include this fn in the architecture 
     return output # What is the correct form for CNN?
 
 def backward_pass(grad, lambda_val, solver=dikkstra): # Include this fn in the architecture of the model
-    input, output = load_input_output()
+    input, output = load_input_output() # from forward pass after applying cc. Output: 
     input += param * grad
     perturbed_output = solver(input)
 
