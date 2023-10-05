@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torch.nn.functional as F
+from .loss import HammingLoss
 from math import sqrt
 
 class CombRenset18(nn.Module):
@@ -32,6 +33,19 @@ class CombRenset18(nn.Module):
         x = self.pool(x)
         x = x.mean(dim=1)
         return x
+    
+class GradientApproximator():
+
+    def __init__(self):
+        self.input = None
+        self.output = None
+        self.prev_input = None
+        self.loss = HammingLoss()
+        self.combinatorial_solver = Dj
+
+    def compute_grads(self, input):
+    
+
 
 
 def get_model(cfg, warcraft_experiment=True):
@@ -40,6 +54,7 @@ def get_model(cfg, warcraft_experiment=True):
     if warcraft_experiment:
         resnet_module = CombRenset18(out_features=144, in_channels=96)
         return resnet_module
+
 
 
 def forward_pass(input, solver=dijkstra): # Include this fn in the architecture of the model
