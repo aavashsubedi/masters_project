@@ -68,26 +68,25 @@ class Dijkstra(nn.Module): # Dijkstra algorithm is a combinatorial solver to fin
 #print(answer)
 
 class NeuralNet(nn.Module):
-    def __init__(self, matrix, dijkstra):
-        super().__init__()
+    def __init__(self, matrix):
         self.matrix = matrix
-        self.dijkstra = dijkstra
+        self.dij = Dijkstra()
         super(NeuralNet, self).__init__()
         self.linear_relu_stack = nn.Sequential(
-            self.dijkstra(matrix)
+            self.linear(56,56),
+            self.dij(matrix)
             )
 
     def forward(self, x): return self.dijkstra(x)
 
 mat = np.load("sample_data.npy")[1]
-model = NeuralNet(mat, Dijkstra())
+model = NeuralNet(mat, Dijkstra)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=1)
 
-loss = criterion(predictions, self.action_data) # Compute the loss
+loss = criterion(predictions) # Compute the loss
 
 # Backpropagation and optimization
 optimizer.zero_grad()
 loss.backward()
 optimizer.step()
-scheduler.step()
