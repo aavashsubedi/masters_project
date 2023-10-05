@@ -8,9 +8,6 @@ import torchvision
 import torch.nn.functional as F
 from math import sqrt
 
-
-
-
 class CombRenset18(nn.Module):
 
     def __init__(self, out_features, in_channels):

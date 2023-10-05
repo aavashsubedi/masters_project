@@ -26,31 +26,6 @@ class Graph:
  
         return shortest_index
 
-    """
-    def dijkstra(self, source_node=0):
-        #Dijkstra's Algorithm to return an adjacency matrix. Pass in a graph object
-        distance = np.full((1, self.vertices), 1e9) # Some large initialisation
-        distance[source_node] = 0
-        shortest_paths = np.full((1, self.vertices), False)
-
-        for _ in range(self.vertices):
-            u = self.shortest_distance(distance, shortest_paths)
-            shortest_paths[u] = True # Indicating we looked at this node
-
-            for v in range(self.vertices):
-                # If not the source node or one we looked at before, and the distance is greater than the previous one:
-                if (self.matrix[u][v] > 0 and sptSet[v] == False and distance[v] > distance[u] + self.matrix[u][v]):
-                    distance[v] = distance[u] + self.matrix[u][v]
-        
-        return distance
-        """
-    
-
-def hamming_loss(suggested, target):
-    errors = suggested * (1.0 - target) + (1.0 - suggested) * target
-
-    return errors.mean(dim=0).sum()
-
 
 def neighbours_8(x, y, x_max, y_max):
     deltas_x = (-1, 0, 1)
@@ -103,14 +78,3 @@ def dijkstra(matrix, neighbourhood_fn=neighbours_8, request_transitions=False):
         return DijkstraOutput(shortest_path=on_path, is_unique=is_unique, transitions=transitions)
     else:
         return DijkstraOutput(shortest_path=on_path, is_unique=is_unique, transitions=None)
-
-mat = np.load("sample_data.npy")[1]
-answer = np.load("sample_label.npy")
-#import pdb; pdb.set_trace()
-
-graph = Graph(96, mat)
-import pdb; pdb.set_trace()
-our_output = dijkstra(graph.matrix)
-print(dijkstra(graph.matrix))
-
-print(answer)
