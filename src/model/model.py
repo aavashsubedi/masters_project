@@ -42,13 +42,6 @@ class GradientApproximator():
         self.input = None
         self.output = None
         self.prev_input = None
-<<<<<<< HEAD
-        self.loss = HammingLoss()
-        self.combinatorial_solver = Dijkstra()
-
-    def compute_grads(self, input):
-        pass
-=======
         self.curr_output = None
         self.lambda_val = 0.1
         self.model = model
@@ -74,7 +67,6 @@ class GradientApproximator():
         """
 
         
->>>>>>> 9466b2b233466e238af6d9de73e92b198851c6fc
     
 
 
@@ -97,12 +89,6 @@ class CNNModel(nn.Module):
         self.input = torch.randn((self.k, self.k))
         self.output = torch.randn((self.k, self.k)) # May use orthogonal initialisation later
     
-<<<<<<< HEAD
-    def forward_pass(self, solver=Dijkstra()):
-        input = self.input.detach().cpu().numpy()
-        output = solver(self.input) # Inputs for dijkstra algo
-        self.output = output
-=======
     return output # What is the correct form for CNN?
 
 def backward_pass(grad, lambda_val, solver=dikkstra): # Include this fn in the architecture of the model
@@ -117,7 +103,6 @@ def backward_pass(grad, lambda_val, solver=dikkstra): # Include this fn in the a
 # class CNNModel(nn.Module):
 #     def __init__(self, cfg):
 #         super(CNNModel, self).__init__()
->>>>>>> 9466b2b233466e238af6d9de73e92b198851c6fc
         
         return output # What is the correct form for CNN? 12 x 12 !!
 
