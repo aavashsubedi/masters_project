@@ -6,8 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torch.nn.functional as F
-from loss.py import HammingLoss
-from combinatorial_solvers.py import Dijkstra
+from .loss import HammingLoss
 from math import sqrt
 from combinatorial_solvers import Dijkstra
 
@@ -42,13 +41,6 @@ class GradientApproximator():
         self.input = None
         self.output = None
         self.prev_input = None
-<<<<<<< HEAD
-        self.loss = HammingLoss()
-        self.combinatorial_solver = Dijkstra()
-
-    def compute_grads(self, input):
-        pass
-=======
         self.curr_output = None
         self.lambda_val = 0.1
         self.model = model
@@ -74,7 +66,6 @@ class GradientApproximator():
         """
 
         
->>>>>>> 9466b2b233466e238af6d9de73e92b198851c6fc
     
 
 
@@ -88,21 +79,11 @@ def get_model(cfg, warcraft_experiment=True):
 
 
 
-class CNNModel(nn.Module):
-    def __init__(self, cfg):
-        super(CNNModel, self).__init__()
-        # Idk how to read the config file
-
-        self.k = 12 # 12 x 12 warcraft maps
-        self.input = torch.randn((self.k, self.k))
-        self.output = torch.randn((self.k, self.k)) # May use orthogonal initialisation later
+def forward_pass(input, solver=dijkstra): # Include this fn in the architecture of the model
+    input = input.detach().cpu().numpy()
+    output = solver(input) # Inputs for dijkstra algo
+    log_input_output(input, output) # decide how to save params!!
     
-<<<<<<< HEAD
-    def forward_pass(self, solver=Dijkstra()):
-        input = self.input.detach().cpu().numpy()
-        output = solver(self.input) # Inputs for dijkstra algo
-        self.output = output
-=======
     return output # What is the correct form for CNN?
 
 def backward_pass(grad, lambda_val, solver=dikkstra): # Include this fn in the architecture of the model
@@ -117,15 +98,3 @@ def backward_pass(grad, lambda_val, solver=dikkstra): # Include this fn in the a
 # class CNNModel(nn.Module):
 #     def __init__(self, cfg):
 #         super(CNNModel, self).__init__()
->>>>>>> 9466b2b233466e238af6d9de73e92b198851c6fc
-        
-        return output # What is the correct form for CNN? 12 x 12 !!
-
-    def backward_pass(self, grad, lambda_val, solver=Dijkstra()):
-        input, output = self.input, self.output
-        input += lambda_val * grad
-        perturbed_output = solver(input)
-
-        gradient = -(1/lambda_val) * (perturbed_output - output)
-
-        return gradient.to(device)
