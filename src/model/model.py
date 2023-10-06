@@ -6,7 +6,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torch.nn.functional as F
-from .loss import HammingLoss
+from loss.py import HammingLoss
+from combinatorial_solvers.py import Dijkstra
 from math import sqrt
 
 class CombRenset18(nn.Module):
@@ -41,9 +42,10 @@ class GradientApproximator():
         self.output = None
         self.prev_input = None
         self.loss = HammingLoss()
-        self.combinatorial_solver = Dj
+        self.combinatorial_solver = Dijkstra()
 
     def compute_grads(self, input):
+        pass
     
 
 
@@ -57,23 +59,27 @@ def get_model(cfg, warcraft_experiment=True):
 
 
 
-def forward_pass(input, solver=dijkstra): # Include this fn in the architecture of the model
-    input = input.detach().cpu().numpy()
-    output = solver(input) # Inputs for dijkstra algo
-    log_input_output(input, output) # decide how to save params!!
+class CNNModel(nn.Module):
+    def __init__(self, cfg):
+        super(CNNModel, self).__init__()
+        # Idk how to read the config file
+
+        self.k = 12 # 12 x 12 warcraft maps
+        self.input = torch.randn((self.k, self.k))
+        self.output = torch.randn((self.k, self.k)) # May use orthogonal initialisation later
     
-    return output # What is the correct form for CNN?
-
-def backward_pass(grad, lambda_val, solver=dikkstra): # Include this fn in the architecture of the model
-    input, output = load_input_output()
-    input += param * grad
-    perturbed_output = solver(input)
-
-    gradient = -(1/lambda_val) * (perturbed_output - output)
-
-    return gradient.to(device)
-
-# class CNNModel(nn.Module):
-#     def __init__(self, cfg):
-#         super(CNNModel, self).__init__()
+    def forward_pass(self, solver=Dijkstra()):
+        input = self.input.detach().cpu().numpy()
+        output = solver(self.input) # Inputs for dijkstra algo
+        self.output = output
         
+        return output # What is the correct form for CNN? 12 x 12 !!
+
+    def backward_pass(self, grad, lambda_val, solver=Dijkstra()):
+        input, output = self.input, self.output
+        input += lambda_val * grad
+        perturbed_output = solver(input)
+
+        gradient = -(1/lambda_val) * (perturbed_output - output)
+
+        return gradient.to(device)
