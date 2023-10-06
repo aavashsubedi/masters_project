@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import heapq
 import itertools
-from graph import neighbours_8, Graph
+from graph.py import neighbours_8
 from functools import partial
 import numpy as np
 from collections import namedtuple
@@ -66,27 +66,3 @@ class Dijkstra(nn.Module): # Dijkstra algorithm is a combinatorial solver to fin
 #answer = np.load("sample_label.npy")
 #print(combinatorial_solver(mat))
 #print(answer)
-
-class NeuralNet(nn.Module):
-    def __init__(self, matrix):
-        self.matrix = matrix
-        self.dij = Dijkstra()
-        super(NeuralNet, self).__init__()
-        self.linear_relu_stack = nn.Sequential(
-            self.linear(56,56),
-            self.dij(matrix)
-            )
-
-    def forward(self, x): return self.dijkstra(x)
-
-mat = np.load("sample_data.npy")[1]
-model = NeuralNet(mat, Dijkstra)
-criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=1)
-
-loss = criterion(predictions) # Compute the loss
-
-# Backpropagation and optimization
-optimizer.zero_grad()
-loss.backward()
-optimizer.step()
