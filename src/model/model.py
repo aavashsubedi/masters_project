@@ -40,32 +40,41 @@ class GradientApproximator():
     def __init__(self, model):
         self.input = None
         self.output = None
-        self.prev_input = None
+        self.prev_cnn_input = None
         self.curr_output = None
         self.lambda_val = 0.1
         self.model = model
-        #self.loss = HammingLoss()
+        self.loss = HammingLoss()
         self.combinatorial_solver = Dijkstra()
         self.labels = None
         self.cnn_loss = None
 
     def forward_pass(self, input):
-        if self.prev_input == None:
+        if self.prev_cnn_input == None:
             #take the shape of the input and create a tensor of random numbers with the same shape
-            self.prev_input = torch.rand(input.shape)
+            self.prev_cnn_input = torch.rand(input.shape)
 
         self.cnn_input = input.detach().cpu().numpy()
-        self.output = self.combinatorial_solver(self.cnn_input)
-        self.prev_input = self.output
+        self.combinatorial_output = self.combinatorial_solver(self.cnn_input)
+        self.prev_cnn_input = self.output
 
-    def backward_pass(self, input):
+    def backward_pass(self):
         #input to the backward pass is from the forward pass before djikstra and after djikstra
-        perturbed_cnn_output = self.lambda_val * self.cnn_input + self.cnn_loss.grad()
-        """
-        What they do is
-        """
+        loss = self.loss(self.combinatorial_output, self.labels)
+        loss_grad = loss.detach().grad
 
-        
+        perturbed_cnn_weights   = self.prev_cnn_input + self.lambda_val * loss_grad
+        perturbed_cnn_output    = self.combinatorial_solver(perturbed_cnn_weights)
+        new_grads = -(1/self.lambda_val) * (perturbed_cnn_output - self.combinatorial_output)
+        return new_grads
+    def propogate(self, input, labels):
+        self.labels = labels
+        self.forward_pass(input)
+        grads = self.backward_pass()
+        with torch.no_grad():
+            for param, grad in zip(self.model.parameters(), grads):
+                param -= grad
+        return self.backward_pass()
     
 
 
