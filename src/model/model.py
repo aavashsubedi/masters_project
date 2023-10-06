@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from loss.py import HammingLoss
 from combinatorial_solvers.py import Dijkstra
 from math import sqrt
+from combinatorial_solvers import Dijkstra
 
 class CombRenset18(nn.Module):
 
@@ -37,15 +38,43 @@ class CombRenset18(nn.Module):
     
 class GradientApproximator():
 
-    def __init__(self):
+    def __init__(self, model):
         self.input = None
         self.output = None
         self.prev_input = None
+<<<<<<< HEAD
         self.loss = HammingLoss()
         self.combinatorial_solver = Dijkstra()
 
     def compute_grads(self, input):
         pass
+=======
+        self.curr_output = None
+        self.lambda_val = 0.1
+        self.model = model
+        #self.loss = HammingLoss()
+        self.combinatorial_solver = Dijkstra()
+        self.labels = None
+        self.cnn_loss = None
+
+    def forward_pass(self, input):
+        if self.prev_input == None:
+            #take the shape of the input and create a tensor of random numbers with the same shape
+            self.prev_input = torch.rand(input.shape)
+
+        self.cnn_input = input.detach().cpu().numpy()
+        self.output = self.combinatorial_solver(self.cnn_input)
+        self.prev_input = self.output
+
+    def backward_pass(self, input):
+        #input to the backward pass is from the forward pass before djikstra and after djikstra
+        perturbed_cnn_output = self.lambda_val * self.cnn_input + self.cnn_loss.grad()
+        """
+        What they do is
+        """
+
+        
+>>>>>>> 9466b2b233466e238af6d9de73e92b198851c6fc
     
 
 
@@ -68,10 +97,27 @@ class CNNModel(nn.Module):
         self.input = torch.randn((self.k, self.k))
         self.output = torch.randn((self.k, self.k)) # May use orthogonal initialisation later
     
+<<<<<<< HEAD
     def forward_pass(self, solver=Dijkstra()):
         input = self.input.detach().cpu().numpy()
         output = solver(self.input) # Inputs for dijkstra algo
         self.output = output
+=======
+    return output # What is the correct form for CNN?
+
+def backward_pass(grad, lambda_val, solver=dikkstra): # Include this fn in the architecture of the model
+    input, output = load_input_output() # from forward pass after applying cc. Output: 
+    input += param * grad
+    perturbed_output = solver(input)
+
+    gradient = -(1/lambda_val) * (perturbed_output - output)
+
+    return gradient.to(device)
+
+# class CNNModel(nn.Module):
+#     def __init__(self, cfg):
+#         super(CNNModel, self).__init__()
+>>>>>>> 9466b2b233466e238af6d9de73e92b198851c6fc
         
         return output # What is the correct form for CNN? 12 x 12 !!
 
