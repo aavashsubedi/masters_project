@@ -1,4 +1,18 @@
+import torch
 
-def hamming_loss(suggested, target):
-    errors = suggested * (1.0 - target) + (1.0 - suggested) * target
-    return errors.mean(dim=0).sum()
+class HammingLoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, prediction, targets):
+        errors = prediction * (1.0 - targets) + (1.0 - prediction) * targets
+        return errors.mean(dim=0).sum()
+
+# loss = HammingLoss()
+# prediction = torch.tensor([[0.5, 0.5, 0.5, 0.5]])
+# target = torch.tensor([[1.0, 0.0, 1.0, 0.0]])
+# print(loss(prediction, target))
+
+
+# class ConcreteDropout(torch.nn.module):
+#     def __init(self):
+#         pass

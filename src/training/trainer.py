@@ -1,17 +1,19 @@
 from src.training.optimizers import get_optimizer, get_scheulder_one_cycle, get_flat_scheduler
-from src.utils.loss import hamming_loss
+from src.utils.loss import HammingLoss
 import torch
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 from tqdm import tqdm
 from src.utils.visualise_gradients import plot_grad_flow
 import wandb
+from src.model.model import GradientApproximator
 
 
 def trainer(cfg, train_dataloader, val_dataloader,
             test_dataloader, model):
     optimizer = get_optimizer(cfg, model)
-    criterion = hamming_loss()
+    criterion = HammingLoss()
     model.train().to(device)
+    gradient_approximater = GradientApproximator(model)
     
     if cfg.scheduler:
         scheduler = get_scheulder_one_cycle(cfg, optimizer, len(train_dataloader), cfg.epochs)
@@ -26,12 +28,14 @@ def trainer(cfg, train_dataloader, val_dataloader,
         pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}",
                          leave=False)
         for data in pbar_data:
-            data = data.to(device)
+            #import pdb; pdb.set_trace()
+            data, label = data
             output = model(data)
-
-            loss = criterion(output, data)
+            gradients = gradient_approximater.propogate(output,
+                                                        label)
+            #loss = criterion(output, data)
             optimizer.zero_grad()
-            loss.backward()
+            #loss.backward()
             optimizer.step()
             scheduler.step()
             pbar_data.set_postfix(loss=loss.item())

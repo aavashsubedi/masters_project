@@ -23,8 +23,8 @@ cnn_hidden: "64"
 cnn_kernel_size: "3"
 
 #for optimiser
-lr: "0.001"
-weight_deacay: 0
+lr: 0.001
+weight_decay: 0
 gradient_clipping: 0
 dropout: 0  
 batchnorm_eps: 0.1
