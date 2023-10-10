@@ -59,6 +59,7 @@ class GradientApproximator():
         self.lambda_val = 0.1
         self.model = model
         self.loss = HammingLoss()
+        self.loss.requires_grad_(True)
         self.combinatorial_solver = Dijkstra()
         self.labels = None
         self.cnn_loss = None
@@ -73,10 +74,12 @@ class GradientApproximator():
         self.prev_cnn_input = self.output
 
     def backward_pass(self):
-        #input to the backward pass is from the forward pass before djikstra and after djikstra
-        loss = self.loss(self.combinatorial_output, self.labels)
         self.combinatorial_output.require_grad = True
         self.labels.require_grad = True
+        #input to the backward pass is from the forward pass before djikstra and after djikstra
+        loss = self.loss(self.combinatorial_output, self.labels)
+        loss.required_grad = True
+
         loss_grad = loss.detach().grad
         import pdb; pdb.set_trace()
         perturbed_cnn_weights   = self.prev_cnn_input + self.lambda_val * loss_grad
