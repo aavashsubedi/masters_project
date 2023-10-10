@@ -4,11 +4,9 @@ class HammingLoss(torch.nn.Module):
     def __init__(self):
         super().__init__()
     def forward(self, prediction, targets):
-        prediction.requires_grad = True
-        targets.requires_grad = True
+        #prediction.requires_grad = True
 
-        errors = prediction * (1.0 - targets) + (1.0 - prediction) * targets
-        return errors.mean(dim=0).sum()
+        return (prediction * (1.0 - targets) + (1.0 - prediction) * targets).mean(dim=0).sum().requires_grad_(True)
 
 # loss = HammingLoss()
 # prediction = torch.tensor([[0.5, 0.5, 0.5, 0.5]])
