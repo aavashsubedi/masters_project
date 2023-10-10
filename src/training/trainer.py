@@ -13,7 +13,7 @@ def trainer(cfg, train_dataloader, val_dataloader,
     optimizer = get_optimizer(cfg, model)
     criterion = HammingLoss()
     model.train().to(device)
-    gradient_approximater = GradientApproximator(model)
+    gradient_approximater = GradientApproximator(model, input_shape=(cfg.batch_size, 12, 12))
     
     if cfg.scheduler:
         scheduler = get_scheulder_one_cycle(cfg, optimizer, len(train_dataloader), cfg.epochs)
@@ -31,11 +31,12 @@ def trainer(cfg, train_dataloader, val_dataloader,
             #import pdb; pdb.set_trace()
             data, label = data
             output = model(data)
-            gradients = gradient_approximater.propogate(output,
+            shortest_path = gradient_approximater.apply(output,
                                                         label)
-            #loss = criterion(output, data)
+            # shortest_path.requires_grad = True
+            loss = criterion(shortest_path, label)
             optimizer.zero_grad()
-            #loss.backward()
+            loss.backward()
             optimizer.step()
             scheduler.step()
             pbar_data.set_postfix(loss=loss.item())
