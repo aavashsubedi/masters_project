@@ -8,7 +8,8 @@ from functools import partial
 import numpy as np
 from collections import namedtuple, defaultdict
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
+device = torch.device("cpu" if torch.cuda.is_available() else "cpu") # Put on every file
+
 class Dijkstra(nn.Module): # Dijkstra algorithm is a combinatorial solver to find shortest paths
     def __init__(self):
         super(Dijkstra, self).__init__()

@@ -12,7 +12,7 @@ tracking_metric: "loss"
 
 
 #directories to change 
-data_dir: "/workspaces/masters_project/data/warcraft_shortest_path_oneskin"
+data_dir: "data/warcraft_shortest_path_oneskin"
 chkpt_dir: ""
 logs_dir: ""
 weights_dir: ""

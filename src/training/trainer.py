@@ -1,7 +1,7 @@
 from src.training.optimizers import get_optimizer, get_scheulder_one_cycle, get_flat_scheduler
 from src.utils.loss import HammingLoss
 import torch
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
 from tqdm import tqdm
 from src.utils.visualise_gradients import plot_grad_flow
 import wandb
@@ -34,7 +34,7 @@ def trainer(cfg, train_dataloader, val_dataloader,
             shortest_path = gradient_approximater.apply(output,
                                                         label)
             # shortest_path.requires_grad = True
-            loss = criterion(shortest_path, label)
+            loss = criterion(shortest_path, label).requires_grad_(True)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()

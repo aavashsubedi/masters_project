@@ -1,6 +1,6 @@
 import torch
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
+device = torch.device("cpu" if torch.cuda.is_available() else "cpu") # Put on every file
 
 import torch.nn as nn
 import torch.optim as optim
@@ -17,6 +17,13 @@ def glorot_initializer(shape):
     
     # Generate random values with a uniform distribution
     return torch.rand(shape, dtype=torch.float32) * 2 * scale - scale
+
+def get_model(cfg, warcraft_experiment=True):
+    #if we use warcraft experiment I will set the default parameters from the paper
+    if warcraft_experiment:
+        resnet_module = CombRenset18(out_features=144, in_channels=3)
+        return resnet_module
+
 
 class CombRenset18(nn.Module):
 
@@ -35,7 +42,6 @@ class CombRenset18(nn.Module):
 
 
     def forward(self, x):
-
         x = self.resnet_model.conv1(x) #64, 48, 48
 
         x = self.resnet_model.bn1(x)
@@ -49,6 +55,57 @@ class CombRenset18(nn.Module):
         x = x.mean(dim=1)
         return x #shape is 32, 12, 12
     
+
+class GradientApproximator(torch.autograd.Function):
+    def __init__(self, model, input_shape):
+        self.input = None
+        self.output = None
+        self.prev_cnn_input = torch.rand(input_shape)
+
+        self.curr_output = None
+        self.lambda_val = 0.1
+        self.model = model
+        self.loss = HammingLoss().requires_grad_(True)
+        self.combinatorial_solver = Dijkstra().requires_grad_(True)
+        self.labels = None
+        self.cnn_loss = None
+
+    @staticmethod
+    def forward(ctx, cnn_input, labels):
+        #ctx.save_for_backward(cnn_input, labels)
+        ctx.loss = HammingLoss().requires_grad_(True)
+        ctx.combinatorial_solver = Dijkstra()
+        ctx.cnn_input = cnn_input
+        ctx.labels = labels
+        
+        solver = ctx.combinatorial_solver
+        criterion = ctx.loss
+        
+        combinatorial_output = torch.tensor(solver(cnn_input.detach().cpu().numpy()), requires_grad=True)
+        #ctx.save_for_backward(cnn_input, labels, combinatorial_output)
+        ctx.combinatorial_output = combinatorial_output
+        #ctx.combinatorial_output = torch.tensor(combinatorial_output, requires_grad=True)
+        ctx.loss = criterion(ctx.combinatorial_output, ctx.labels)
+
+        return ctx.combinatorial_output
+    
+    @staticmethod
+    def backward(ctx, grad_output):
+        cnn_input, labels, combinatorial_output  = ctx.cnn_input, ctx.labels, ctx.combinatorial_output
+        solver = ctx.combinatorial_solver
+        
+        #loss = ctx.loss(combinatorial_output, labels)
+        import pdb; pdb.set_trace()
+        loss_grad = torch.autograd.grad(ctx.loss, ctx.combinatorial_output)
+
+        perturbed_cnn_weights = cnn_input + torch.tensor([0.1]) * loss_grad
+        perturbed_cnn_output = solver(perturbed_cnn_weights)
+
+        new_grads = -(1/ctx.lambda_val) * (perturbed_cnn_output - solver(cnn_input))
+
+        return new_grads, None, None
+
+
 # class GradientApproximator(torch.autograd.Function):
 
 #     def __init__(self, model, input_shape):
@@ -97,17 +154,6 @@ class CombRenset18(nn.Module):
         # for name, param in self.model.named_parameters():
         #     import pdb; pdb.set_trace()
 
-
-
-def get_model(cfg, warcraft_experiment=True):
-    #if we use warcraft experiment I will set the default parameters from the paper
-
-    if warcraft_experiment:
-        resnet_module = CombRenset18(out_features=144, in_channels=3)
-        return resnet_module
-
-
-
 # def forward_pass(input, solver=dijkstra): # Include this fn in the architecture of the model
 #     input = input.detach().cpu().numpy()
 #     output = solver(input) # Inputs for dijkstra algo
@@ -127,52 +173,3 @@ def get_model(cfg, warcraft_experiment=True):
 # class CNNModel(nn.Module):
 #     def __init__(self, cfg):
 #         super(CNNModel, self).__init__()
-
-class GradientApproximator(torch.autograd.Function):
-
-    def __init__(self, model, input_shape):
-        self.input = None
-        self.output = None
-        self.prev_cnn_input = torch.rand(input_shape)
-
-        self.curr_output = None
-        self.lambda_val = 0.1
-        self.model = model
-        self.loss = HammingLoss()
-        self.loss.requires_grad_(True)
-        self.combinatorial_solver = Dijkstra
-        self.labels = None
-        self.cnn_loss = None
-    @staticmethod
-    def forward(ctx, cnn_input, labels, solver=Dijkstra(),
-                criterion=HammingLoss()):
-        #ctx.save_for_backward(cnn_input, labels)
-        ctx.solver = solver
-        
-        combinatorial_output = torch.tensor(solver(cnn_input.detach().cpu().numpy()), requires_grad=True)
-        ctx.save_for_backward(cnn_input, labels, combinatorial_output)
-        ctx.combinatorial_output = combinatorial_output
-        ctx.labels = labels
-        ctx.combinatorial_output = torch.tensor(combinatorial_output, requires_grad=True)
-        ctx.loss = criterion(ctx.combinatorial_output, ctx.labels)
-        return ctx.combinatorial_output
-    @staticmethod
-    def backward(ctx, grad_output):
-        cnn_input, labels, combinatorial_output  = ctx.saved_tensors
-        solver = ctx.solver
-        
-        #loss = ctx.loss(combinatorial_output, labels)
-        import pdb; pdb.set_trace()
-        loss_grad = torch.autograd.grad(ctx.loss, ctx.combinatorial_output)
-
-        perturbed_cnn_weights = cnn_input + torch.tensor([0.1]) * loss_grad
-        perturbed_cnn_output = solver(perturbed_cnn_weights)
-
-        new_grads = -(1/ctx.lambda_val) * (perturbed_cnn_output - solver(cnn_input))
-
-        return new_grads, None, None
-
-
-
-
-
