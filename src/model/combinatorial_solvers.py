@@ -7,10 +7,12 @@ from .graph import neighbours_8
 from functools import partial
 import numpy as np
 from collections import namedtuple, defaultdict
+#add a autograd function
 
-device = torch.device("cpu" if torch.cuda.is_available() else "cpu") # Put on every file
 
-class Dijkstra(nn.Module): # Dijkstra algorithm is a combinatorial solver to find shortest paths
+device = torch.device("gpu" if torch.cuda.is_available() else "cpu") # Put on every file
+
+class Dijkstra(torch.autograd.Function): # Dijkstra algorithm is a combinatorial solver to find shortest paths
     def __init__(self):
         super(Dijkstra, self).__init__()
         self.output = namedtuple("DijkstraOutput", ["shortest_path", "is_unique", "transitions"])
@@ -77,6 +79,9 @@ class Dijkstra(nn.Module): # Dijkstra algorithm is a combinatorial solver to fin
             shortest_paths.append(shortest_path)
        # import pdb; pdb.set_trace()
         return torch.cat(shortest_paths, dim=0)
+    def backward(self, grad_output):
+        import pdb; pdb.set_trace()
+        return grad_output
 # class Dijkstra(nn.Module): # Dijkstra algorithm is a combinatorial solver to find shortest paths
 #     def __init__(self):
 #         super(Dijkstra, self).__init__()

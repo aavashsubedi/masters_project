@@ -65,45 +65,36 @@ class GradientApproximator(torch.autograd.Function):
         self.curr_output = None
         self.lambda_val = 0.1
         self.model = model
-        self.loss = HammingLoss().requires_grad_(True)
-        self.combinatorial_solver = Dijkstra().requires_grad_(True)
+        self.criterion = HammingLoss().requires_grad_(True)
+        self.combinatorial_solver = Dijkstra()
         self.labels = None
         self.cnn_loss = None
 
     @staticmethod
     def forward(ctx, cnn_input, labels):
-        #ctx.save_for_backward(cnn_input, labels)
-        ctx.loss = HammingLoss().requires_grad_(True)
-        ctx.combinatorial_solver = Dijkstra()
-        ctx.cnn_input = cnn_input
-        ctx.labels = labels
-        
-        solver = ctx.combinatorial_solver
-        criterion = ctx.loss
-        
-        combinatorial_output = torch.tensor(solver(cnn_input.detach().cpu().numpy()), requires_grad=True)
-        #ctx.save_for_backward(cnn_input, labels, combinatorial_output)
-        ctx.combinatorial_output = combinatorial_output
-        #ctx.combinatorial_output = torch.tensor(combinatorial_output, requires_grad=True)
-        ctx.loss = criterion(ctx.combinatorial_output, ctx.labels)
+        #ctx.criterion = HammingLoss().requires_grad_(True)
 
+        ctx.labels = labels
+        ctx.cnn_input = cnn_input
+        
+        #this line here is the issue, there is no connection between the cnn_input and the combinatorial solver
+        ctx.combinatorial_output = ctx.combinatorial_solver(cnn_input)
+        ctx.loss = ctx.criterion(ctx.combinatorial_output, ctx.labels)
+        print("doing the forward pass")
+        import pdb; pdb.set_trace()
         return ctx.combinatorial_output
     
     @staticmethod
-    def backward(ctx, grad_output):
-        cnn_input, labels, combinatorial_output  = ctx.cnn_input, ctx.labels, ctx.combinatorial_output
-        solver = ctx.combinatorial_solver
-        
-        #loss = ctx.loss(combinatorial_output, labels)
-        import pdb; pdb.set_trace()
-        loss_grad = torch.autograd.grad(ctx.loss, ctx.combinatorial_output)
+    def backward(ctx): # Deviation from paper algo, calculate grad in function
+        ctx.loss_grad = torch.autograd.grad(ctx.loss, ctx.combinatorial_output)
+       # import pdb ; pdb.set_trace()
+        perturbed_cnn_weights = ctx.cnn_input + torch.matmul(torch.full(ctx.cnn_input.shape, 0.1), ctx.loss_grad[0]) # Is this variable named accurately?
+        perturbed_cnn_output = ctx.combinatorial_solver(perturbed_cnn_weights)
+        new_grads = -(1/ctx.lambda_val) * (perturbed_cnn_output - ctx.combinatorial_solver(ctx.cnn_input))
+       # import pdb; pdb.set_trace()
+        return new_grads
+    
 
-        perturbed_cnn_weights = cnn_input + torch.tensor([0.1]) * loss_grad
-        perturbed_cnn_output = solver(perturbed_cnn_weights)
-
-        new_grads = -(1/ctx.lambda_val) * (perturbed_cnn_output - solver(cnn_input))
-
-        return new_grads, None, None
 
 
 # class GradientApproximator(torch.autograd.Function):

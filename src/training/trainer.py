@@ -6,6 +6,8 @@ from tqdm import tqdm
 from src.utils.visualise_gradients import plot_grad_flow
 import wandb
 from src.model.model import GradientApproximator
+from torchviz import make_dot
+
 
 
 def trainer(cfg, train_dataloader, val_dataloader,
@@ -27,23 +29,32 @@ def trainer(cfg, train_dataloader, val_dataloader,
 
         pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}",
                          leave=False)
+        wandb.watch(model)
+
         for data in pbar_data:
             #import pdb; pdb.set_trace()
             data, label = data
             output = model(data)
-            shortest_path = gradient_approximater.apply(output,
-                                                        label)
-            # shortest_path.requires_grad = True
-            loss = criterion(shortest_path, label).requires_grad_(True)
+            abs_output = output.abs() #not sure if this workls
+            #loss = criterion(abs_output, label)
+
+            shortest_path = gradient_approximater.forward(gradient_approximater,
+                                                           output, label) # Used forward instead of apply() for GPU friendliness
+            
+            #gradient_approximater.backward(gradient_approximater)
+            #this is just doing the hamming loss it doesnt do anything else.
+            loss = gradient_approximater.criterion(shortest_path, label)
+            #simport pdb; pdb.set_trace()
             optimizer.zero_grad()
-            loss.backward()
+            #loss.backward()
             optimizer.step()
             scheduler.step()
             pbar_data.set_postfix(loss=loss.item())
             plot_grad_flow(model.named_parameters())
-            
+            #dot = make_dot(loss, params=dict(model.named_parameters()))
+            #import pdb; pdb.set_trace() 
             #uncessary at the moment
             # torch.nn.utils.clip_grad_norm_(model.parameters(),
             #                                 cfg.gradient_clipping)
-            wandb.log(loss.item())
+            wandb.log({"loss": loss.item()})
 

@@ -3,10 +3,12 @@ import torch
 class HammingLoss(torch.nn.Module):
     def __init__(self):
         super().__init__()
+        self.loss = None
     def forward(self, prediction, targets):
-        #prediction.requires_grad = True
-
-        return (prediction * (1.0 - targets) + (1.0 - prediction) * targets).mean(dim=0).sum().requires_grad_(True)
+        #import pdb; pdb.set_trace()
+        errors = prediction * (1.0 - targets) + (1.0 - prediction) * targets
+        self.loss = errors.mean(dim=0).sum()
+        return self.loss
 
 # loss = HammingLoss()
 # prediction = torch.tensor([[0.5, 0.5, 0.5, 0.5]])

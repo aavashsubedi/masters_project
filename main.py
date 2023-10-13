@@ -11,7 +11,7 @@ warnings.filterwarnings("ignore")
 @hydra.main(version_base='1.3', config_path="config/",
              config_name="main.yaml")
 def main(cfg):
-    #setup_wandb(cfg)
+    setup_wandb(cfg)
     run(cfg)
     
     return 0
