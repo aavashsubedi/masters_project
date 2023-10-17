@@ -81,11 +81,13 @@ class GradientApproximator(torch.autograd.Function):
         ctx.combinatorial_output = ctx.combinatorial_solver(cnn_input)
         ctx.loss = ctx.criterion(ctx.combinatorial_output, ctx.labels)
         print("doing the forward pass")
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         return ctx.combinatorial_output
     
     @staticmethod
     def backward(ctx): # Deviation from paper algo, calculate grad in function
+        import pdb; pdb.set_trace()
+
         ctx.loss_grad = torch.autograd.grad(ctx.loss, ctx.combinatorial_output)
        # import pdb ; pdb.set_trace()
         perturbed_cnn_weights = ctx.cnn_input + torch.matmul(torch.full(ctx.cnn_input.shape, 0.1), ctx.loss_grad[0]) # Is this variable named accurately?

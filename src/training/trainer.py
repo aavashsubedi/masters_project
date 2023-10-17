@@ -10,6 +10,18 @@ from torchviz import make_dot
 
 
 
+
+
+def test_func(cnn_input):
+
+    #we need to first take a copy of this and then detach it pass it through djistktra.
+
+
+
+
+    pass 
+
+
 def trainer(cfg, train_dataloader, val_dataloader,
             test_dataloader, model):
     optimizer = get_optimizer(cfg, model)
@@ -36,11 +48,14 @@ def trainer(cfg, train_dataloader, val_dataloader,
             data, label = data
             output = model(data)
             abs_output = output.abs() #not sure if this workls
+            #loss = test_fn(abs_output)
             #loss = criterion(abs_output, label)
+            import pdb; pdb.set_trace()
+            gradient_approximater.forward(gradient_approximater,
+                                                            output, label) # Used forward instead of apply() for GPU friendliness
+            gradient_approximater.backward()
+            #shortest_path.backward()
 
-            shortest_path = gradient_approximater.forward(gradient_approximater,
-                                                           output, label) # Used forward instead of apply() for GPU friendliness
-            
             #gradient_approximater.backward(gradient_approximater)
             #this is just doing the hamming loss it doesnt do anything else.
             loss = gradient_approximater.criterion(shortest_path, label)
