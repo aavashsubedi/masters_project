@@ -8,7 +8,7 @@ import torchvision
 import torch.nn.functional as F
 from src.utils.loss import HammingLoss
 from math import sqrt
-from .combinatorial_solvers import Dijkstra
+from .combinatorial_solvers import Dijkstra, DijskstraClass
 
 def glorot_initializer(shape):
     # Calculate the scale factor for Glorot initialization
@@ -39,7 +39,8 @@ class CombRenset18(nn.Module):
         output_shape = (int(sqrt(out_features)), int(sqrt(out_features)))
         self.pool = nn.AdaptiveMaxPool2d(output_shape)
         #self.last_conv = nn.Conv2d(128, 1, kernel_size=1,  stride=1)
-
+        self.combinatorial_solver = DijskstraClass.apply
+        self.grad_approx = GradientApproximator.apply
 
     def forward(self, x):
         x = self.resnet_model.conv1(x) #64, 48, 48
@@ -53,11 +54,15 @@ class CombRenset18(nn.Module):
         #x = self.last_conv(x)
         x = self.pool(x)
         x = x.mean(dim=1)
+        cnn_output = x.abs()
+        combinatorial_solver_output = self.combinatorial_solver(cnn_output)
+        x = self.grad_approx(combinatorial_solver_output, cnn_output)
         return x #shape is 32, 12, 12
     
 
 class GradientApproximator(torch.autograd.Function):
-    def __init__(self, model, input_shape):
+    def __init__(self, model, input_shape,
+                 lambda_val=0.1):
         self.input = None
         self.output = None
         self.prev_cnn_input = torch.rand(input_shape)
@@ -65,36 +70,43 @@ class GradientApproximator(torch.autograd.Function):
         self.curr_output = None
         self.lambda_val = 0.1
         self.model = model
-        self.criterion = HammingLoss().requires_grad_(True)
-        self.combinatorial_solver = Dijkstra()
+        #self.criterion = HammingLoss().requires_grad_(True)
+        #self.combinatorial_solver = DijskstraClass()
         self.labels = None
         self.cnn_loss = None
 
     @staticmethod
-    def forward(ctx, cnn_input, labels):
+    def forward(ctx, combinatorial_solver_output, cnn_output,
+                ):
         #ctx.criterion = HammingLoss().requires_grad_(True)
 
-        ctx.labels = labels
-        ctx.cnn_input = cnn_input
+        #ctx.labels = labels
+        #ctx.cnn_input = cnn_input
         
         #this line here is the issue, there is no connection between the cnn_input and the combinatorial solver
-        ctx.combinatorial_output = ctx.combinatorial_solver(cnn_input)
-        ctx.loss = ctx.criterion(ctx.combinatorial_output, ctx.labels)
-        print("doing the forward pass")
+        #combinatorial_output = ctx.combinatorial_solver(cnn_input)
+        #loss = ctx.criterion(combinatorial_output, ctx.labels)
+        #print("doing the forward pass")
         #import pdb; pdb.set_trace()
-        return ctx.combinatorial_output
+        ctx.save_for_backward(combinatorial_solver_output, cnn_output)
+        return combinatorial_solver_output
     
     @staticmethod
-    def backward(ctx): # Deviation from paper algo, calculate grad in function
-        import pdb; pdb.set_trace()
-
-        ctx.loss_grad = torch.autograd.grad(ctx.loss, ctx.combinatorial_output)
-       # import pdb ; pdb.set_trace()
-        perturbed_cnn_weights = ctx.cnn_input + torch.matmul(torch.full(ctx.cnn_input.shape, 0.1), ctx.loss_grad[0]) # Is this variable named accurately?
-        perturbed_cnn_output = ctx.combinatorial_solver(perturbed_cnn_weights)
-        new_grads = -(1/ctx.lambda_val) * (perturbed_cnn_output - ctx.combinatorial_solver(ctx.cnn_input))
-       # import pdb; pdb.set_trace()
-        return new_grads
+    def backward(ctx, grad_input,
+                 ): # Deviation from paper algo, calculate grad in function
+        #shape of loss grad is [1, 32, 12, 12]
+       # combinatorial_solver = DijskstraClass()
+        #import pdb; pdb.set_trace()
+        lambda_val = 0.1
+        combinatorial_solver_output, cnn_output = ctx.saved_tensors
+        perturbed_cnn_weights = cnn_output + torch.matmul(torch.full(cnn_output.shape, 0.1), grad_input[0]) # Is this variable named accurately?
+        perturbed_cnn_output = DijskstraClass.apply(perturbed_cnn_weights)
+        new_grads = -(1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
+        return new_grads, new_grads
+        # perturbed_cnn_output = combinatorial_solver(perturbed_cnn_weights)
+        # new_grads = -(1 / ctx.lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
+    
+        # return new_grads
     
 
 
