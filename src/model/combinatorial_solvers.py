@@ -163,6 +163,7 @@ class DijskstraClass(torch.autograd.Function):
         #import pdb; pdb.set_trace()
         input_ = ctx.saved_tensors
         #why are we doing this?
+       # import pdb; pdb.set_trace()
          
         return grad_output #* input_[0]
     

@@ -97,11 +97,13 @@ class GradientApproximator(torch.autograd.Function):
         #shape of loss grad is [1, 32, 12, 12]
        # combinatorial_solver = DijskstraClass()
         #import pdb; pdb.set_trace()
+        
+        #return grad_input, grad_input
         lambda_val = 0.1
         combinatorial_solver_output, cnn_output = ctx.saved_tensors
-        perturbed_cnn_weights = cnn_output + torch.matmul(torch.full(cnn_output.shape, 0.1), grad_input[0]) # Is this variable named accurately?
+        perturbed_cnn_weights = cnn_output + torch.matmul(torch.full(cnn_output.shape, 20.0), grad_input[0]) # Is this variable named accurately?
         perturbed_cnn_output = DijskstraClass.apply(perturbed_cnn_weights)
-        new_grads = -(1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
+        new_grads = -(1 / 20) * (combinatorial_solver_output - perturbed_cnn_output)
         return new_grads, new_grads
         # perturbed_cnn_output = combinatorial_solver(perturbed_cnn_weights)
         # new_grads = -(1 / ctx.lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
