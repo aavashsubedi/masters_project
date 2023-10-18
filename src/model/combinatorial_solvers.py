@@ -73,7 +73,11 @@ def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False)
 
         shortest_paths = []
         for output in outputs:
+
             shortest_path = output.shortest_path
+            #check if shortest path is just identiyty matrix
+            # if torch.all(shortest_path == torch.eye(12)):
+            #     print("Just identity here : (")
             is_unique = output.is_unique
             transitions = output.transitions
             shortest_paths.append(shortest_path)
@@ -230,3 +234,4 @@ class DijskstraClass(torch.autograd.Function):
 #answer = np.load("sample_label.npy")
 #print(combinatorial_solver(mat))
 #print(answer)
+

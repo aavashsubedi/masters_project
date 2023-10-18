@@ -21,13 +21,14 @@ def glorot_initializer(shape):
 def get_model(cfg, warcraft_experiment=True):
     #if we use warcraft experiment I will set the default parameters from the paper
     if warcraft_experiment:
-        resnet_module = CombRenset18(out_features=144, in_channels=3)
+        resnet_module = CombRenset18(out_features=144, in_channels=3,
+                                     cfg=cfg)
         return resnet_module
 
 
 class CombRenset18(nn.Module):
 
-    def __init__(self, out_features, in_channels):
+    def __init__(self, out_features, in_channels, cfg):
         """
         Expected shape is [b, 3, h, w]
         """
@@ -41,23 +42,38 @@ class CombRenset18(nn.Module):
         #self.last_conv = nn.Conv2d(128, 1, kernel_size=1,  stride=1)
         self.combinatorial_solver = DijskstraClass.apply
         self.grad_approx = GradientApproximator.apply
+        #give us a normal convolution with the same shape as the input
+        self.conv1_t = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        #self.conv2_t = nn.Conv2d(12, 12, kernel_size=3, padding)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.cfg = cfg
 
     def forward(self, x):
         x = self.resnet_model.conv1(x) #64, 48, 48
-
-        x = self.resnet_model.bn1(x)
-        x = self.resnet_model.relu(x)
-        x = self.resnet_model.maxpool(x) #64, 64, 24
-        x = self.resnet_model.layer1(x)
+        #x = self.conv1_t(x)  #b, 64, 48, 48
+       # x = self.bn1(x) #64, 48, 48
+        x = self.relu1(x) #64, 48, 48
+        x = self.pool(x) #64, 12, 12
+        #x = se
+        # x = self.resnet_model.bn1(x)
+        # x = self.resnet_model.relu(x)
+        # x = self.resnet_model.maxpool(x) #64, 64, 24
+        # x = self.resnet_model.layer1(x)
         #x = self.resnet_model.layer2(x)
         #x = self.resnet_model.layer3(x)
         #x = self.last_conv(x)
-        x = self.pool(x)
         x = x.mean(dim=1)
+       # import pdb; pdb.set_trace()
         cnn_output = x.abs()
+        if self.cfg.normalise:
+            pass
+            #we want here to unnormalise the cnn_output. Essentially shifting by mean and multiplying by std
+
+
         combinatorial_solver_output = self.combinatorial_solver(cnn_output)
         x = self.grad_approx(combinatorial_solver_output, cnn_output)
-        return x #shape is 32, 12, 12
+        return x, cnn_output #shape is 32, 12, 12
     
 
 class GradientApproximator(torch.autograd.Function):
@@ -101,9 +117,9 @@ class GradientApproximator(torch.autograd.Function):
         #return grad_input, grad_input
         lambda_val = 0.1
         combinatorial_solver_output, cnn_output = ctx.saved_tensors
-        perturbed_cnn_weights = cnn_output + torch.matmul(torch.full(cnn_output.shape, 20.0), grad_input[0]) # Is this variable named accurately?
+        perturbed_cnn_weights = cnn_output + torch.matmul(torch.full(cnn_output.shape, 10.0), grad_input[0]) # Is this variable named accurately?
         perturbed_cnn_output = DijskstraClass.apply(perturbed_cnn_weights)
-        new_grads = -(1 / 20) * (combinatorial_solver_output - perturbed_cnn_output)
+        new_grads = -(1 / 10) * (combinatorial_solver_output - perturbed_cnn_output)
         return new_grads, new_grads
         # perturbed_cnn_output = combinatorial_solver(perturbed_cnn_weights)
         # new_grads = -(1 / ctx.lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)

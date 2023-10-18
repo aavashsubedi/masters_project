@@ -6,8 +6,16 @@ class HammingLoss(torch.nn.Module):
         self.loss = None
     def forward(self, prediction, targets):
         #import pdb; pdb.set_trace()
-        errors = prediction * (1.0 - targets) + (1.0 - prediction) * targets
-        self.loss = errors.mean(dim=0).sum()
+        hamming_diff = torch.abs(targets - prediction)
+        self.loss = hamming_diff.mean()
+        #self.loss = hamming_diff.sum() / (hamming_diff.size(0) * targets.size(1))
+        #self.loss =  self.loss.mean(dim=(1, 2))
+        
+
+
+
+        # errors = prediction * (1.0 - targets) + (1.0 - prediction) * targets
+        # self.loss = errors.mean(dim=0).sum()
         return self.loss
 
 # loss = HammingLoss()

@@ -38,3 +38,5 @@ num_epochs: 50
 warcraft_tile: "12"
 normalise: true
 batch_size: 32
+map_weights_mean: 3.9269
+man_weights_std: 3.3777

@@ -9,6 +9,12 @@ from src.model.model import GradientApproximator
 from src.model.combinatorial_solvers import Dijkstra, DijskstraClass
 from torchviz import make_dot
 from copy import deepcopy
+#set seed
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
 
 
 
@@ -39,9 +45,14 @@ def trainer(cfg, train_dataloader, val_dataloader,
     curr_epoch = 0
     pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining",
                         leave=False)
+                        
+    #create a MSE loss criterion 
+    criterion_2 = torch.nn.MSELoss()
     
     data_copy = None
     label_copy = None
+    weights_copy = None
+    epoch = 0
     for epoch in pbar_epochs:
 
         pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}",
@@ -49,15 +60,17 @@ def trainer(cfg, train_dataloader, val_dataloader,
         wandb.watch(model)
         i = 0
         for data in pbar_data:
+            
             # if data_copy != None:
             #     #skip the loop
             #     continue
             if i == 0:
                 if data_copy == None:
-                    data, label = data
+                    data, label, weights = data
                     data_copy = deepcopy(data)
                     label_copy = deepcopy(label) 
-                data, label  = data_copy, label_copy
+                    weights_copy = deepcopy(weights)
+                data, label, weights  = data_copy, label_copy, weights_copy
                 # import pdb; pdb.set_trace()
                 i += 1
             else:
@@ -65,10 +78,16 @@ def trainer(cfg, train_dataloader, val_dataloader,
 
             #import pdb; pdb.set_trace()
             #data, label = data
-            output = model(data)
+            
+            output, cnn_output = model(data)
             #import pdb; pdb.set_trace()
-            loss = criterion(output, label)
-            loss.backward()
+            #import pdb; pdb.set_trace()
+            if epoch < 0:
+                loss = criterion_2(cnn_output, weights)
+                loss.backward()
+            else:
+                loss = criterion(output, label)
+                loss.backward()
             #abs_output = output.abs() #not sure if this workls
             #loss = test_fn(abs_output)
             #loss = criterion(abs_output, label)
