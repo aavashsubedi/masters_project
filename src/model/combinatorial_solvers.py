@@ -7,11 +7,11 @@ from .graph import neighbours_8
 from functools import partial
 import numpy as np
 from collections import namedtuple, defaultdict
+#from utils.priorityQ import priorityQ_torch
+
 #add a autograd function
 
-
-device = torch.device("gpu" if torch.cuda.is_available() else "cpu") # Put on every file
-
+device = torch.device("cpu" if torch.cuda.is_available() else "cpu") # Put on every file
 
 
 def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False):
@@ -19,7 +19,7 @@ def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False)
         # Ensure matrices is a 4D tensor (batch_size, channels, height, width)
 #        matrices = torch.tensor(matrices)
         batch_size, height, width = matrices.size()
-       # import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         outputs = []
         output = namedtuple("DijkstraOutput", ["shortest_path", "is_unique", "transitions"])
         # if matrices.dim() != 3:
@@ -160,6 +160,7 @@ class DijskstraClass(torch.autograd.Function):
         return result
     @staticmethod
     def backward(ctx, grad_output):
+
         #import pdb; pdb.set_trace()
         input_ = ctx.saved_tensors
         #why are we doing this?

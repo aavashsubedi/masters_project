@@ -1,6 +1,6 @@
 import torch
 
-device = torch.device("cpu" if torch.cuda.is_available() else "cpu") # Put on every file
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
 
 import torch.nn as nn
 import torch.optim as optim
@@ -61,8 +61,7 @@ class CombRenset18(nn.Module):
     
 
 class GradientApproximator(torch.autograd.Function):
-    def __init__(self, model, input_shape,
-                 lambda_val=0.1):
+    def __init__(self, model, input_shape):
         self.input = None
         self.output = None
         self.prev_cnn_input = torch.rand(input_shape)
@@ -78,6 +77,7 @@ class GradientApproximator(torch.autograd.Function):
     @staticmethod
     def forward(ctx, combinatorial_solver_output, cnn_output,
                 ):
+        """
         #ctx.criterion = HammingLoss().requires_grad_(True)
 
         #ctx.labels = labels
@@ -87,23 +87,23 @@ class GradientApproximator(torch.autograd.Function):
         #combinatorial_output = ctx.combinatorial_solver(cnn_input)
         #loss = ctx.criterion(combinatorial_output, ctx.labels)
         #print("doing the forward pass")
+        """
         #import pdb; pdb.set_trace()
         ctx.save_for_backward(combinatorial_solver_output, cnn_output)
         return combinatorial_solver_output
     
     @staticmethod
-    def backward(ctx, grad_input,
-                 ): # Deviation from paper algo, calculate grad in function
+    def backward(ctx, grad_input): # Deviation from paper algo, calculate grad in function
         #shape of loss grad is [1, 32, 12, 12]
-       # combinatorial_solver = DijskstraClass()
-        #import pdb; pdb.set_trace()
-        
         #return grad_input, grad_input
-        lambda_val = 0.1
+
+        lambda_val = 20
         combinatorial_solver_output, cnn_output = ctx.saved_tensors
-        perturbed_cnn_weights = cnn_output + torch.matmul(torch.full(cnn_output.shape, 20.0), grad_input[0]) # Is this variable named accurately?
+        perturbed_cnn_weights = cnn_output + torch.multiply(lambda_val, grad_input) # Is this variable named accurately?
+        #import pdb; pdb.set_trace()
         perturbed_cnn_output = DijskstraClass.apply(perturbed_cnn_weights)
-        new_grads = -(1 / 20) * (combinatorial_solver_output - perturbed_cnn_output)
+        new_grads = -(1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
+        
         return new_grads, new_grads
         # perturbed_cnn_output = combinatorial_solver(perturbed_cnn_weights)
         # new_grads = -(1 / ctx.lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
@@ -112,7 +112,7 @@ class GradientApproximator(torch.autograd.Function):
     
 
 
-
+"""
 # class GradientApproximator(torch.autograd.Function):
 
 #     def __init__(self, model, input_shape):
@@ -180,3 +180,4 @@ class GradientApproximator(torch.autograd.Function):
 # class CNNModel(nn.Module):
 #     def __init__(self, cfg):
 #         super(CNNModel, self).__init__()
+"""

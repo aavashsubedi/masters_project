@@ -1,13 +1,13 @@
 from src.training.optimizers import get_optimizer, get_scheulder_one_cycle, get_flat_scheduler
 from src.utils.loss import HammingLoss
 import torch
-device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 from tqdm import tqdm
 from src.utils.visualise_gradients import plot_grad_flow
 import wandb
 from src.model.model import GradientApproximator
 from src.model.combinatorial_solvers import Dijkstra, DijskstraClass
-from torchviz import make_dot
+#from torchviz import make_dot
 from copy import deepcopy
 
 
@@ -16,10 +16,6 @@ from copy import deepcopy
 def test_func(cnn_input):
 
     #we need to first take a copy of this and then detach it pass it through djistktra.
-
-
-
-
     pass 
 
 
@@ -29,12 +25,13 @@ def trainer(cfg, train_dataloader, val_dataloader,
     criterion = HammingLoss()
     model.train().to(device)
     gradient_approximater = GradientApproximator(model, input_shape=(cfg.batch_size, 12, 12))
-   # dijs = DijskstraClass()
+    # dijs = DijskstraClass()
     
     if cfg.scheduler:
         scheduler = get_scheulder_one_cycle(cfg, optimizer, len(train_dataloader), cfg.epochs)
     else:
         scheduler = get_flat_scheduler(cfg, optimizer)
+
     early_stop_counter = 0
     curr_epoch = 0
     pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining",
@@ -52,23 +49,32 @@ def trainer(cfg, train_dataloader, val_dataloader,
             # if data_copy != None:
             #     #skip the loop
             #     continue
-            if i == 0:
+            """if i == 0:
                 if data_copy == None:
                     data, label = data
                     data_copy = deepcopy(data)
-                    label_copy = deepcopy(label) 
+                    label_copy = deepcopy(label)
+
                 data, label  = data_copy, label_copy
                 # import pdb; pdb.set_trace()
                 i += 1
             else:
-                continue
+                continue"""
+            
+            data, label = data
 
             #import pdb; pdb.set_trace()
             #data, label = data
+            data.to(device)
+            label.to(device)
+
             output = model(data)
-            #import pdb; pdb.set_trace()
+            
             loss = criterion(output, label)
+            #import pdb; pdb.set_trace()
             loss.backward()
+
+            """
             #abs_output = output.abs() #not sure if this workls
             #loss = test_fn(abs_output)
             #loss = criterion(abs_output, label)
@@ -87,6 +93,8 @@ def trainer(cfg, train_dataloader, val_dataloader,
             #simport pdb; pdb.set_trace()
             #optimizer.zero_grad()
             #loss.backward()
+            """
+
             optimizer.step()
             scheduler.step()
             pbar_data.set_postfix(loss=loss.item())

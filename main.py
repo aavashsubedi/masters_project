@@ -8,6 +8,7 @@ import torch.multiprocessing as mp
 import warnings
 warnings.filterwarnings("ignore")
 
+
 @hydra.main(version_base='1.3', config_path="config/",
              config_name="main.yaml")
 def main(cfg):
