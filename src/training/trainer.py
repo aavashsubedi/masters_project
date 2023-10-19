@@ -1,4 +1,4 @@
-from src.training.optimizers import get_optimizer, get_scheulder_one_cycle, get_flat_scheduler
+from src.training.optimizers import get_optimizer, get_scheduler_one_cycle, get_flat_scheduler
 from src.utils.loss import HammingLoss
 import torch
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -11,10 +11,7 @@ from src.model.combinatorial_solvers import Dijkstra, DijskstraClass
 from copy import deepcopy
 
 
-
-
 def test_func(cnn_input):
-
     #we need to first take a copy of this and then detach it pass it through djistktra.
     pass 
 
@@ -28,7 +25,7 @@ def trainer(cfg, train_dataloader, val_dataloader,
     # dijs = DijskstraClass()
     
     if cfg.scheduler:
-        scheduler = get_scheulder_one_cycle(cfg, optimizer, len(train_dataloader), cfg.epochs)
+        scheduler = get_scheduler_one_cycle(cfg, optimizer, len(train_dataloader), cfg.epochs)
     else:
         scheduler = get_flat_scheduler(cfg, optimizer)
 
@@ -46,66 +43,24 @@ def trainer(cfg, train_dataloader, val_dataloader,
         wandb.watch(model)
         i = 0
         for data in pbar_data:
-            # if data_copy != None:
-            #     #skip the loop
-            #     continue
-            """if i == 0:
-                if data_copy == None:
-                    data, label = data
-                    data_copy = deepcopy(data)
-                    label_copy = deepcopy(label)
-
-                data, label  = data_copy, label_copy
-                # import pdb; pdb.set_trace()
-                i += 1
-            else:
-                continue"""
             
             data, label = data
-
-            #import pdb; pdb.set_trace()
-            #data, label = data
             data.to(device)
             label.to(device)
 
             output = model(data)
             
             loss = criterion(output, label)
-            #import pdb; pdb.set_trace()
             loss.backward()
-
-            """
-            #abs_output = output.abs() #not sure if this workls
-            #loss = test_fn(abs_output)
-            #loss = criterion(abs_output, label)
-
-            #import pdb; pdb.set_trace()
-            #output = gradient_approximater.forward(gradient_approximater,
-            #                                                output, label) # Used forward instead of apply() for GPU friendliness
-            #output.backward()
-            #new_gradients = gradient_approximater.backward(gradient_approximater)
-            #shortest_path.backward()
-            #abs_output.backward(new_gradients)
-            #gradient_approximater.backward(gradient_approximater)
-            #this is just doing the hamming loss it doesnt do anything else.
-            #loss = criterion(abs_output.detach(), label).detach()
-
-            #simport pdb; pdb.set_trace()
-            #optimizer.zero_grad()
-            #loss.backward()
-            """
 
             optimizer.step()
             scheduler.step()
             pbar_data.set_postfix(loss=loss.item())
             plot_grad_flow(model.named_parameters())
-
-            #dot = make_dot(loss, params=dict(model.named_parameters()))
-            #import pdb; pdb.set_trace() 
             
             #uncessary at the moment
             # torch.nn.utils.clip_grad_norm_(model.parameters(),
             #                                 cfg.gradient_clipping)
             wandb.log({"loss": loss.item()})
 
-            #data_copy = deepcopy(data)
+    return None

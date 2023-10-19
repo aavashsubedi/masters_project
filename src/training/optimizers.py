@@ -11,7 +11,7 @@ def get_optimizer(cfg, model):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     return optimizer
 
-def get_scheulder_one_cycle(cfg, optimizer, num_steps_per_epoch,
+def get_scheduler_one_cycle(cfg, optimizer, num_steps_per_epoch,
                             num_epochs):
     return torch.optim.lr_scheduler.OneCycleLR(optimizer=optimizer,
                                                 max_lr=cfg.lr,
@@ -23,7 +23,6 @@ def get_scheulder_one_cycle(cfg, optimizer, num_steps_per_epoch,
                                                 final_div_factor=20.0)
 
 #get a linear scheduler
-
 def get_flat_scheduler(cfg, optimizer, num_steps_per_epoch=None, num_epochs=None):
     
     step_size = 1000000
