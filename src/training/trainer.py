@@ -15,6 +15,7 @@ torch.cuda.manual_seed(42)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
+from .evaulate import check_cost
 
 
 
@@ -64,30 +65,30 @@ def trainer(cfg, train_dataloader, val_dataloader,
             # if data_copy != None:
             #     #skip the loop
             #     continue
-            if i == 0:
-                if data_copy == None:
-                    data, label, weights = data
-                    data_copy = deepcopy(data)
-                    label_copy = deepcopy(label) 
-                    weights_copy = deepcopy(weights)
-                data, label, weights  = data_copy, label_copy, weights_copy
-                # import pdb; pdb.set_trace()
-                i += 1
-            else:
-                continue
+            # if i == 0:
+            #     if data_copy == None:
+            #         data, label, weights = data
+            #         data_copy = deepcopy(data)
+            #         label_copy = deepcopy(label) 
+            #         weights_copy = deepcopy(weights)
+            #     data, label, weights  = data_copy, label_copy, weights_copy
+            #     # import pdb; pdb.set_trace()
+            #     i += 1
+            # else:
+            #     continue
+            data, label, weights = data
 
-            #import pdb; pdb.set_trace()
-            #data, label = data
             
             output, cnn_output = model(data)
-            #import pdb; pdb.set_trace()
-            #import pdb; pdb.set_trace()
             if epoch < 0:
                 loss = criterion_2(cnn_output, weights)
                 loss.backward()
             else:
                 loss = criterion(output, label)
                 loss.backward()
+            
+            check_cost(weights, label, output)
+            
             #abs_output = output.abs() #not sure if this workls
             #loss = test_fn(abs_output)
             #loss = criterion(abs_output, label)
