@@ -1,6 +1,7 @@
 import torch
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
+#torch.set_default_device(device)
 
 import torch.nn as nn
 import torch.optim as optim
@@ -77,6 +78,7 @@ class GradientApproximator(torch.autograd.Function):
     @staticmethod
     def forward(ctx, combinatorial_solver_output, cnn_output):
         ctx.save_for_backward(combinatorial_solver_output, cnn_output)
+        ctx.combinatorial_solver = DijskstraClass()
         return combinatorial_solver_output
     
     @staticmethod
@@ -87,7 +89,8 @@ class GradientApproximator(torch.autograd.Function):
         combinatorial_solver_output, cnn_output = ctx.saved_tensors
 
         perturbed_cnn_weights = cnn_output + torch.multiply(lambda_val, grad_input) # Is this variable named accurately?
-        perturbed_cnn_output = DijskstraClass.apply(perturbed_cnn_weights)
+        #import pdb; pdb.set_trace()
+        perturbed_cnn_output = DijskstraClass.apply(perturbed_cnn_weights).to(device)
         new_grads = -(1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
         
         return new_grads, new_grads

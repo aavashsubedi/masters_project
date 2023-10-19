@@ -9,7 +9,7 @@ import numpy as np
 from collections import namedtuple, defaultdict
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+#torch.set_default_device(device)
 
 def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False):
         

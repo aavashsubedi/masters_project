@@ -2,6 +2,9 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#torch.set_default_device(device)
+
 class NumpyDataset(Dataset):
     def __init__(self, data, targets=None, transform=None):
         self.data = data
@@ -16,20 +19,12 @@ class NumpyDataset(Dataset):
             if self.transform is not None:
                 data = self.transform(data)
             #not that efficent as we are converting to tensor on the fly
-            return torch.tensor(data), torch.tensor(target)
-        # if self.targets is not None:
-        #     return self.transform(self.data[idx]), self.targets[idx]
-        # elif self.transform is not None:
-        #     return self.transform(self.data[idx])
-        # print("currently in the getter function")
-        # return torch.tensor(self.data[idx])
-        
+            return torch.tensor(data, device=device), torch.tensor(target, device=device)
+
+
 def get_dataloader(cfg, mode="train", targets=None, transform=None):
     mode = "train" if mode == None else mode
-    #assert mode in ["train", "val", "test"], "mode must be one of train, val, test"
 
-    #assert mode in ["train", "val", "test"], "mode must be one of train, val, test"
-    
     if cfg.warcraft_tile == "12":
         #we will use the 12x12 tiles
         data_path = cfg.data_dir + "/12x12/"
@@ -44,7 +39,6 @@ def get_dataloader(cfg, mode="train", targets=None, transform=None):
     #why do this? doesnt really make much sense to me :| is it to support resnet?
     data_maps = data_maps.transpose(0, 3, 1, 2)
     
-    #import pdb; pdb.set_trace()
     # if cfg.normalise:
     #     #normalise the data to have zero mean and unit variance
         
@@ -62,5 +56,4 @@ def get_dataloader(cfg, mode="train", targets=None, transform=None):
     dataloader = DataLoader(dataset, batch_size=cfg.batch_size,                             
                             shuffle=True, num_workers=cfg.num_workers)
     
-    #return the dataloader
     return dataloader
