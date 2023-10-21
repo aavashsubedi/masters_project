@@ -7,15 +7,15 @@ from .graph import neighbours_8
 from functools import partial
 import numpy as np
 from collections import namedtuple, defaultdict
+import time
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 #torch.set_default_device(device)
 
+
 def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False):
-        
         batch_size, height, width = matrices.size()
         outputs = []
-        output = namedtuple("DijkstraOutput", ["shortest_path", "is_unique", "transitions"])
 
         for batch_idx in range(batch_size):
             matrix = matrices[batch_idx]  # Extract the current matrix
@@ -55,20 +55,9 @@ def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False)
                 cur_x, cur_y = transitions[(cur_x, cur_y)]
                 on_path[cur_x, cur_y] = 1.0
 
-            is_unique = num_path[-1, -1] == 1
+            outputs.append(on_path.unsqueeze(0))
 
-            if request_transitions:
-                outputs.append(output(shortest_path=on_path.unsqueeze(0), is_unique=is_unique, transitions=transitions))
-            else:
-                outputs.append(output(shortest_path=on_path.unsqueeze(0), is_unique=is_unique, transitions=None))
-
-        shortest_paths = []
-        for output in outputs:
-            shortest_path = output.shortest_path
-            is_unique = output.is_unique
-            transitions = output.transitions
-            shortest_paths.append(shortest_path)
-        return torch.cat(shortest_paths, dim=0).requires_grad_(True)
+        return torch.stack(outputs).squeeze(1).requires_grad_(True)
     
 
 # Necessary for backprop    
@@ -85,7 +74,6 @@ class DijskstraClass(torch.autograd.Function):
         #import pdb; pdb.set_trace()
         input_ = ctx.saved_tensors
         #why are we doing this?
-       # import pdb; pdb.set_trace()
          
         return grad_output #* input_[0]
     

@@ -7,6 +7,6 @@ def setup_wandb(cfg):
     kwargs = {'project': cfg.project_name, 'config': config_dict, 'reinit': True, 'mode': cfg.wandb,
               'settings': wandb.Settings(_disable_stats=True)}
     run = wandb.init(**kwargs)
-    wandb.save('*.txt')
-    run.save()
+    #wandb.save('*.txt')
+    #run.save()
     return cfg, run

@@ -1,15 +1,15 @@
 import torch
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
-#torch.set_default_device(device)
-
 import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torch.nn.functional as F
 from src.utils.loss import HammingLoss
 from math import sqrt
-from .combinatorial_solvers import Dijkstra, DijskstraClass
+from .combinatorial_solvers import DijskstraClass
+import time 
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
+#torch.set_default_device(device)
 
 def glorot_initializer(shape):
     # Calculate the scale factor for Glorot initialization
@@ -44,6 +44,7 @@ class CombRenset18(nn.Module):
         self.grad_approx = GradientApproximator.apply
 
     def forward(self, x):
+        # x.to(device) This sends GPU util to 99% without decreasing step time
         x = self.resnet_model.conv1(x) #64, 48, 48
 
         x = self.resnet_model.bn1(x)
@@ -89,8 +90,10 @@ class GradientApproximator(torch.autograd.Function):
         combinatorial_solver_output, cnn_output = ctx.saved_tensors
 
         perturbed_cnn_weights = cnn_output + torch.multiply(lambda_val, grad_input) # Is this variable named accurately?
-        #import pdb; pdb.set_trace()
-        perturbed_cnn_output = DijskstraClass.apply(perturbed_cnn_weights).to(device)
+        t0 = time.time()
+        perturbed_cnn_output = DijskstraClass.apply(perturbed_cnn_weights).to(device) # Takes 1.8555629253387451 s
+        t1 = time.time()
+        print(t1-t0)
         new_grads = -(1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
         
         return new_grads, new_grads
