@@ -15,7 +15,7 @@ torch.cuda.manual_seed(42)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
-from .evaulate import check_cost
+from .evaulate import check_cost, evaluate
 
 
 
@@ -121,4 +121,7 @@ def trainer(cfg, train_dataloader, val_dataloader,
             #                                 cfg.gradient_clipping)
             wandb.log({"loss": loss.item()})
             wandb.log({"batchwise_accuracy": batchwise_accuracy})
+    
             #data_copy = deepcopy(data)
+        evaluate(model, val_dataloader, criterion, mode="val")
+    evaluate(model, test_dataloader, criterion, mode="test")

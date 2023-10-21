@@ -22,3 +22,39 @@ def check_cost(true_weights, true_path,
    # predicted_cost = torch.dot(predicted_weights, true_path)
     
     #if true_cost !=
+
+#evaluate function for evaluation/testing
+import torch
+import wandb
+import time
+import pandas as pd
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+torch.backends.cudnn.deterministic = True
+
+
+@torch.no_grad()
+def evaluate(model, data_loader, criterion, 
+            mode="validation"):
+    start = time.time()
+    model.evaluate()
+    accuracy = []
+    losses = []
+
+    for data in data_loader:
+        data = data.to(device)
+        data, label, weights = data
+        output, cnn_output = model(data)
+        batchwise_accuracy = check_cost(weights, label, output)
+        accuracy.append(batchwise_accuracy)
+        loss = criterion(output, label)
+        losses.append(loss.item())
+
+    avg_loss = sum(losses) / len(losses)
+    avg_accuracy = sum(accuracy) / len(accuracy)
+    end = time.time()
+    results = {f"{mode}_loss": avg_loss,
+               f"{mode}_accuracy": avg_accuracy,
+            }
+    wandb.log(results)
