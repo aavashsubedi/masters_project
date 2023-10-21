@@ -54,6 +54,7 @@ def trainer(cfg, train_dataloader, val_dataloader,
     label_copy = None
     weights_copy = None
     epoch = 0
+    total_accuracy = []
     for epoch in pbar_epochs:
 
         pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}",
@@ -87,7 +88,7 @@ def trainer(cfg, train_dataloader, val_dataloader,
                 loss = criterion(output, label)
                 loss.backward()
             
-            check_cost(weights, label, output)
+            batchwise_accuracy = check_cost(weights, label, output)
             
             #abs_output = output.abs() #not sure if this workls
             #loss = test_fn(abs_output)
@@ -119,5 +120,5 @@ def trainer(cfg, train_dataloader, val_dataloader,
             # torch.nn.utils.clip_grad_norm_(model.parameters(),
             #                                 cfg.gradient_clipping)
             wandb.log({"loss": loss.item()})
-
+            wandb.log({"batchwise_accuracy": batchwise_accuracy})
             #data_copy = deepcopy(data)

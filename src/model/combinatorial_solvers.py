@@ -7,6 +7,7 @@ from .graph import neighbours_8
 from functools import partial
 import numpy as np
 from collections import namedtuple, defaultdict
+import time
 #add a autograd function
 
 
@@ -21,7 +22,9 @@ def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False)
         batch_size, height, width = matrices.size()
        # import pdb; pdb.set_trace()
         outputs = []
-        output = namedtuple("DijkstraOutput", ["shortest_path", "is_unique", "transitions"])
+    #    start_time = time.time()
+        
+        #output = namedtuple("DijkstraOutput", ["shortest_path", "is_unique", "transitions"])
         # if matrices.dim() != 3:
         #     raise ValueError("Input matrices must be a 3D tensor (batch_size, height, width).")
 
@@ -64,24 +67,29 @@ def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False)
                 cur_x, cur_y = transitions[(cur_x, cur_y)]
                 on_path[cur_x, cur_y] = 1.0
 
-            is_unique = num_path[-1, -1] == 1
+          #  is_unique = num_path[-1, -1] == 1
 
-            if request_transitions:
-                outputs.append(output(shortest_path=on_path.unsqueeze(0), is_unique=is_unique, transitions=transitions))
-            else:
-                outputs.append(output(shortest_path=on_path.unsqueeze(0), is_unique=is_unique, transitions=None))
+            # if request_transitions:
+            #     outputs.append(output(shortest_path=on_path.unsqueeze(0), is_unique=is_unique, transitions=transitions))
+            # else:
+            #     outputs.append(output(shortest_path=on_path.unsqueeze(0), is_unique=is_unique, transitions=None))
+            outputs.append(on_path.unsqueeze(0))
+    #    shortest_paths = []
+      #  mid_time = time.time() - start_time
+     #   output = shortest_paths
+        # for output in outputs:
 
-        shortest_paths = []
-        for output in outputs:
-
-            shortest_path = output.shortest_path
-            #check if shortest path is just identiyty matrix
-            # if torch.all(shortest_path == torch.eye(12)):
-            #     print("Just identity here : (")
-            is_unique = output.is_unique
-            transitions = output.transitions
-            shortest_paths.append(shortest_path)
-        return torch.cat(shortest_paths, dim=0).requires_grad_(True)
+        #     shortest_path = output.shortest_path
+        #     #check if shortest path is just identiyty matrix
+        #     # if torch.all(shortest_path == torch.eye(12)):
+        #     #     print("Just identity here : (")
+        #     is_unique = output.is_unique
+        #     transitions = output.transitions
+        #     shortest_paths.append(shortest_path)
+        # final_time = time.time() - mid_time
+     #   import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
+        return torch.stack(outputs).squeeze(1).requires_grad_(True)
     
 
 # class Dijkstra(nn.Module): # Dijkstra algorithm is a combinatorial solver to find shortest paths
