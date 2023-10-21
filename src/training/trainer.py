@@ -55,6 +55,8 @@ def trainer(cfg, train_dataloader, val_dataloader,
     weights_copy = None
     epoch = 0
     total_accuracy = []
+    evaluate(model, val_dataloader, criterion, mode="val")
+
     for epoch in pbar_epochs:
 
         pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}",

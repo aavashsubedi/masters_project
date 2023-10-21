@@ -38,22 +38,24 @@ torch.backends.cudnn.deterministic = True
 def evaluate(model, data_loader, criterion, 
             mode="validation"):
     start = time.time()
-    model.evaluate()
+    #model.evaluate()
     accuracy = []
     losses = []
 
     for data in data_loader:
-        data = data.to(device)
         data, label, weights = data
+        data.to(device)
+        label.to(device)
+        weights.to(device)
         output, cnn_output = model(data)
         batchwise_accuracy = check_cost(weights, label, output)
         accuracy.append(batchwise_accuracy)
         loss = criterion(output, label)
         losses.append(loss.item())
-
+    #import pdb; pdb.set_trace()
     avg_loss = sum(losses) / len(losses)
     avg_accuracy = sum(accuracy) / len(accuracy)
-    end = time.time()
+    end = time.time() - start
     results = {f"{mode}_loss": avg_loss,
                f"{mode}_accuracy": avg_accuracy,
             }
