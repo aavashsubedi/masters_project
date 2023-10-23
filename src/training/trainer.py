@@ -1,13 +1,16 @@
 from src.training.optimizers import get_optimizer, get_scheduler_one_cycle, get_flat_scheduler
-from src.model.combinatorial_solvers import Dijkstra, DijskstraClass
-from src.utils.visualise_gradients import plot_grad_flow
-from src.model.model import GradientApproximator
 from src.utils.loss import HammingLoss
-from .evaluate import check_cost
 import torch
 from tqdm import tqdm
+from src.utils.visualise_gradients import plot_grad_flow
 import wandb
-from copy import deepcopy
+from src.model.model import GradientApproximator
+from src.model.combinatorial_solvers import Dijkstra, DijskstraClass
+from .evaluate import check_cost
+import time
+
+#from torchviz import make_dot
+#from copy import deepcopy
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -19,14 +22,12 @@ torch.backends.cudnn.benchmark = False
 
 
 def test_func(cnn_input):
-
     #we need to first take a copy of this and then detach it pass it through djistktra.
 
     pass 
 
 
-def trainer(cfg, train_dataloader, val_dataloader,
-            test_dataloader, model):
+def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
     optimizer = get_optimizer(cfg, model)
     criterion = HammingLoss()
     model.train().to(device)
@@ -36,10 +37,10 @@ def trainer(cfg, train_dataloader, val_dataloader,
         scheduler = get_scheduler_one_cycle(cfg, optimizer, len(train_dataloader), cfg.epochs)
     else:
         scheduler = get_flat_scheduler(cfg, optimizer)
+
     early_stop_counter = 0
     curr_epoch = 0
-    pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining",
-                        leave=False)
+    pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining", leave=False)
                         
     #create a MSE loss criterion 
     criterion_2 = torch.nn.MSELoss()
@@ -57,10 +58,16 @@ def trainer(cfg, train_dataloader, val_dataloader,
 
         for data in pbar_data:
             data, label, weights = data
+            data.to(device)
+            label.to(device)
+            weights.to(device)
 
-            
-            output, cnn_output = model(data)
-            if epoch < 0:
+            output, cnn_output = model(data) # 0.9s per step for batch=32
+            output.to(device)
+            cnn_output.to(device)
+
+
+            if epoch < 0: # When does this happen?
                 loss = criterion_2(cnn_output, weights)
                 loss.backward()
             else:
@@ -68,18 +75,14 @@ def trainer(cfg, train_dataloader, val_dataloader,
                 loss.backward()
             
             batchwise_accuracy = check_cost(weights, label, output)
-
+            
             optimizer.step()
             scheduler.step()
+
             pbar_data.set_postfix(loss=loss.item())
-            plot_grad_flow(model.named_parameters())
+            #plot_grad_flow(model.named_parameters())
 
-
-            #uncessary at the moment
-            # torch.nn.utils.clip_grad_norm_(model.parameters(),
-            #                                 cfg.gradient_clipping)
             wandb.log({"loss": loss.item()})
             wandb.log({"batchwise_accuracy": batchwise_accuracy})
-            
-            
+
     return None

@@ -9,8 +9,9 @@ import numpy as np
 from collections import namedtuple, defaultdict
 import time
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-#torch.set_default_device(device)
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
+
 
 
 def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False):
@@ -59,8 +60,7 @@ def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False)
 
         return torch.stack(outputs).squeeze(1).requires_grad_(True)
     
-
-# Necessary for backprop    
+    
 class DijskstraClass(torch.autograd.Function):
     
     @staticmethod
@@ -70,10 +70,7 @@ class DijskstraClass(torch.autograd.Function):
         return result
     @staticmethod
     def backward(ctx, grad_output):
-
-        #import pdb; pdb.set_trace()
         input_ = ctx.saved_tensors
         #why are we doing this?
          
         return grad_output #* input_[0]
-    

@@ -23,7 +23,7 @@ cnn_hidden: "64"
 cnn_kernel_size: "3"
 
 #for optimiser
-lr: 0.005
+lr: 5e-4
 weight_decay: 0
 gradient_clipping: 0
 dropout: 0  
@@ -37,4 +37,6 @@ num_epochs: 50
 #dataset
 warcraft_tile: "12"
 normalise: true
-batch_size: 32
+batch_size: 70
+map_weights_mean: 3.9269
+man_weights_std: 3.3777
