@@ -6,11 +6,8 @@ from src.utils.visualise_gradients import plot_grad_flow
 import wandb
 from src.model.model import GradientApproximator
 from src.model.combinatorial_solvers import Dijkstra, DijskstraClass
-from .evaluate import check_cost
+from .evaluate import check_cost, evaluate
 import time
-
-#from torchviz import make_dot
-#from copy import deepcopy
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -33,25 +30,19 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
     model.train().to(device)
     gradient_approximater = GradientApproximator(model, input_shape=(cfg.batch_size, 12, 12))
     
+
     if cfg.scheduler:
         scheduler = get_scheduler_one_cycle(cfg, optimizer, len(train_dataloader), cfg.epochs)
     else:
         scheduler = get_flat_scheduler(cfg, optimizer)
 
-    early_stop_counter = 0
-    curr_epoch = 0
     pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining", leave=False)
                         
     #create a MSE loss criterion 
     criterion_2 = torch.nn.MSELoss()
     
-    data_copy = None
-    label_copy = None
-    weights_copy = None
     epoch = 0
-    total_accuracy = []
     for epoch in pbar_epochs:
-
         pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}",
                          leave=False)
         wandb.watch(model)
@@ -65,7 +56,6 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
             output, cnn_output = model(data) # 0.9s per step for batch=32
             output.to(device)
             cnn_output.to(device)
-
 
             if epoch < 0: # When does this happen?
                 loss = criterion_2(cnn_output, weights)
@@ -84,5 +74,8 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
 
             wandb.log({"loss": loss.item()})
             wandb.log({"batchwise_accuracy": batchwise_accuracy})
+
+        evaluate(model, val_dataloader, criterion, mode="val")
+    evaluate(model, test_dataloader, criterion, mode="test")
 
     return None
