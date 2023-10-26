@@ -43,8 +43,7 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
     
     epoch = 0
     for epoch in pbar_epochs:
-        pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}",
-                         leave=False)
+        pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}", leave=False)
         wandb.watch(model)
 
         for data in pbar_data:
@@ -75,7 +74,7 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
             wandb.log({"loss": loss.item()})
             wandb.log({"batchwise_accuracy": batchwise_accuracy})
 
-        evaluate(model, val_dataloader, criterion, mode="val")
+        evaluate(model, val_dataloader, criterion, mode="validation")
     evaluate(model, test_dataloader, criterion, mode="test")
 
     return None

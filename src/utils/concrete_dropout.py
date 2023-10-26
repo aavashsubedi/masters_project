@@ -3,68 +3,41 @@ Implemenation of 'Concrete Dropout' (Gal et al.) https://doi.org/10.48550/arXiv.
 This is the continuous analog to the usual discrete form of dropout.
 
 """
-import keras.backend as K
-from keras import initializers
-from keras.engine import InputSpec
-from keras.layers import Dense, Lambda, Wrapper
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-class ConcreteDropout(Wrapper) :
+
+class ConcreteDropout(nn.Module) : # This is a Pytorch custom dropout layer
     def __init__(self, layer, weight_regularizer=1e-6, dropout_regularizer=1e-5) :
         super(ConcreteDropout, self).__init__(layer)
 
-        self.weight_regularizer = K.cast_to_floatx(weight_regularizer)
-        self.dropout_regularizer = K.cast_to_floatx(dropout_regularizer)
-        self.mc_test_time = mc_test_time
-        self.losses = []
-        self.supports_masking = True
+        self.weight_regularizer = weight_regularizer
+        self.dropout_regularizer = dropout_regularizer
+        self.p_logit = nn.Parameter(torch.Tensor(1))
+        self.p_logit.data.uniform_(-2., 0.)
+        self.p = torch.sigmoid(self.p_logit)
 
 
-        def build(self, input_shape=None):
-            assert len(input_shape) == 2 # TODO  test with more than two dims
-            self.input_spec = InputSpec(shape = input_shape)
+    def forward(self, x):
+        eps = 1e-7        # Small factor epsilon
+        temp = 1.0 / 10.0 # 'temperature' of distribution
+        unif_noise = torch.rand_like(x)
+        drop_prob = torch.sigmoid((torch.log(self.p + eps) - torch.log(1 - self.p + eps) +
+                     torch.log(unif_noise + eps) - torch.log(1 - unif_noise + eps)) / temp)
 
-            if not self.layer.built:
-                self.layer.build(input_shape)
-                self.layer.built = True
+        random_tensor = 1 - drop_prob
+        retain_prob = 1 - self.p
+        x = x * random_tensor  # Apply dropout
+        x = x / retain_prob  # Adjust for dropout rate
 
-            super(ConcreteDropout, self).build() # this is very weird .. we must call super before we add new losses
+        # Calculate the regularizers
+        input_dim = x.size(1)
+        weight_regularizer = self.weight_regularizer * torch.sum(self.layer.weight**2) / (1. - self.p)
 
-            # initialise p
-            self.p_logit = self.add_weight((1 ,), initializers.RandomUniform(-2., 0.) , # ~0.1 to ~0.5 in logit space .
-                                           name='p_logit', trainable=True)
-            self.p = K.sigmoid(self.p_logit [0])
-            # initialise regulariser / prior KL term
-            input_dim = input_shape[-1] # we drop only last dim
-            weight = self.layer.kernel
-            # Note : we divide by (1 - p ) because we scaled layer output by (1 - p)
-            kernel_regularizer = self.weight_regularizer * K.sum(K.square(weight)) / (1. - self.p)
-            dropout_regularizer = self.p * K.log(self.p)
-            dropout_regularizer += (1. - self.p) * K.log(1. - self.p)
-            dropout_regularizer *= self.dropout_regularizer * input_dim
-            regularizer = K.sum(kernel_regularizer + dropout_regularizer)
-            self.add_loss(regularizer)
+        dropout_regularizer = (self.p * torch.log(self.p) + ((1. - self.p) * torch.log(1. - self.p)))
+        dropout_regularizer *= (self.dropout_regularizer * input_dim)
 
-            return None
-        
-        
-        def compute_output_shape ( self , input_shape ) :
-            return self . layer . compute_output_shape ( input_shape )
-        
-        
-        def concrete_dropout (self, x):
-            eps = K.cast_to_floatx(K.epsilon())
-            temp = 1.0 / 10.0
-            unif_noise = K.random_uniform(shape = K.shape(x))
-            drop_prob = (K.log(self.p + eps) - K.log(1. - self.p + eps) + K.log(unif_noise + eps) - K.log(1. - unif_noise + eps))
-            drop_prob = K.sigmoid(drop_prob / temp)
-            random_tensor = 1. - drop_prob
-            retain_prob = 1. - self.p
-            x *= random_tensor
-            x /= retain_prob
+        regularizer = weight_regularizer + dropout_regularizer
 
-            return x
-        
-
-        def call (self, inputs):
-            return self.layer.call(self.concrete_dropout(inputs))
-
+        return x, regularizer

@@ -11,8 +11,7 @@ torch.cuda.manual_seed(42)
 torch.backends.cudnn.deterministic = True
 
 
-def check_cost(true_weights, true_path,
-    predicted_path):
+def check_cost(true_weights, true_path, predicted_path):
     """
     We will compute the true cost of each path and then compare. if they are not equal to each other
     within a margin of error we will count thas a wrong prediction.
@@ -55,6 +54,7 @@ def evaluate(model, data_loader, criterion,
     results = {f"{mode}_loss": avg_loss,
                f"{mode}_accuracy": avg_accuracy,
             }
+    
     wandb.log(results)
 
     return None

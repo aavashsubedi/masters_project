@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from src.utils.loss import HammingLoss
 from math import sqrt
 from .combinatorial_solvers import Dijkstra, DijskstraClass
+from utils.concrete_dropout import ConcreteDropout
 import time
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
@@ -34,8 +35,7 @@ class CombRenset18(nn.Module):
         super().__init__()
         self.resnet_model = torchvision.models.resnet18(pretrained=False, num_classes=out_features)
         del self.resnet_model.conv1
-        self.resnet_model.conv1 = nn.Conv2d(in_channels,
-         64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.resnet_model.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
         output_shape = (int(sqrt(out_features)), int(sqrt(out_features)))
         self.pool = nn.AdaptiveMaxPool2d(output_shape)
         #self.last_conv = nn.Conv2d(128, 1, kernel_size=1,  stride=1)
@@ -50,10 +50,12 @@ class CombRenset18(nn.Module):
         self.relu1 = nn.ReLU(inplace=True)
         self.cfg = cfg
 
+
     def forward(self, x):
         x = self.resnet_model.conv1(x) #64, 48, 48
         x = self.relu1(x) #64, 48, 48
         x = self.pool(x) #64, 12, 12
+        x = self.ConcreteDropout()
 
         x = x.mean(dim=1)
         cnn_output = x.abs()
