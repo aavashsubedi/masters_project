@@ -13,7 +13,6 @@ import time
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
 
 
-
 def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False):
         batch_size, height, width = matrices.size()
         outputs = []

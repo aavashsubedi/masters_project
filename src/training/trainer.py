@@ -53,7 +53,7 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
             weights.to(device)
 
             output, cnn_output = model(data) # 0.9s per step for batch=32
-            output.to(device)
+            #output.to(device)
             cnn_output.to(device)
 
             if epoch < 0: # When does this happen?
@@ -74,7 +74,7 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
             wandb.log({"loss": loss.item()})
             wandb.log({"batchwise_accuracy": batchwise_accuracy})
 
-        evaluate(model, val_dataloader, criterion, mode="validation")
+        evaluate(model, val_dataloader, criterion, mode="val")
     evaluate(model, test_dataloader, criterion, mode="test")
 
     return None

@@ -69,6 +69,7 @@ def get_dataloader(cfg, mode="train", targets=None, transform=None):
     #now the files are loaded, convert them to a dataiterator
     dataset = NumpyDataset(data_maps, data_labels, transform=transform, weights=data_vertex_weights)
     dataloader = DataLoader(dataset, batch_size=cfg.batch_size,                             
-                            shuffle=True, num_workers=cfg.num_workers)
+                            shuffle=True, num_workers=cfg.num_workers, )
+                            #pin_memory=True) # Put on GPU with pin_memory
     
     return dataloader

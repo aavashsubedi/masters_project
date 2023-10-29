@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from src.utils.loss import HammingLoss
 from math import sqrt
 from .combinatorial_solvers import Dijkstra, DijskstraClass
-from utils.concrete_dropout import ConcreteDropout
+from src.utils.concrete_dropout import ConcreteDropout
 import time
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
@@ -40,6 +40,8 @@ class CombRenset18(nn.Module):
         self.pool = nn.AdaptiveMaxPool2d(output_shape)
         #self.last_conv = nn.Conv2d(128, 1, kernel_size=1,  stride=1)
 
+        self.concrete_dropout = ConcreteDropout(self.resnet_model.conv1) # Input the previous layer into Concrete Dropout to get its weights
+
         self.combinatorial_solver = DijskstraClass.apply
         self.grad_approx = GradientApproximator.apply
 
@@ -55,7 +57,7 @@ class CombRenset18(nn.Module):
         x = self.resnet_model.conv1(x) #64, 48, 48
         x = self.relu1(x) #64, 48, 48
         x = self.pool(x) #64, 12, 12
-        x = self.ConcreteDropout()
+        x = self.concrete_dropout(x) # This does dropout on a convolutional layer !!!! Check if this is ok. Must use small amount of dropout
 
         x = x.mean(dim=1)
         cnn_output = x.abs()
