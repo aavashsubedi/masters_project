@@ -35,12 +35,14 @@ class CombRenset18(nn.Module):
         super().__init__()
         self.resnet_model = torchvision.models.resnet18(pretrained=False, num_classes=out_features)
         del self.resnet_model.conv1
+
         self.resnet_model.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
         output_shape = (int(sqrt(out_features)), int(sqrt(out_features)))
         self.pool = nn.AdaptiveMaxPool2d(output_shape)
         #self.last_conv = nn.Conv2d(128, 1, kernel_size=1,  stride=1)
+        self.linear = nn.Linear(48, 64) # I HARDCODED THE NUMBERS # Fully connected layer to do dropout on
 
-        self.concrete_dropout = ConcreteDropout(self.resnet_model.conv1) # Input the previous layer into Concrete Dropout to get its weights
+        self.concrete_dropout = ConcreteDropout(self.linear) # Input the previous layer into Concrete Dropout to get its weights
 
         self.combinatorial_solver = DijskstraClass.apply
         self.grad_approx = GradientApproximator.apply
@@ -56,8 +58,10 @@ class CombRenset18(nn.Module):
     def forward(self, x):
         x = self.resnet_model.conv1(x) #64, 48, 48
         x = self.relu1(x) #64, 48, 48
+        #x = self.linear(x) # No change to shape
+        #x = self.relu1(x)
         x = self.pool(x) #64, 12, 12
-        x = self.concrete_dropout(x) # This does dropout on a convolutional layer !!!! Check if this is ok. Must use small amount of dropout
+        #x = self.concrete_dropout(x) # This does dropout on a convolutional layer !!!! Check if this is ok. Must use small amount of dropout
 
         x = x.mean(dim=1)
         cnn_output = x.abs()

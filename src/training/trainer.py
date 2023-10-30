@@ -58,10 +58,11 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
 
             if epoch < 0: # When does this happen?
                 loss = criterion_2(cnn_output, weights)
-                loss.backward()
+                loss.backward()#retain_graph=True) # retain_graph allows concrete_dropout to work. But adds 1s per step
+                # Somewhere in the architecture there are multiple calls to backward()
             else:
                 loss = criterion(output, label)
-                loss.backward()
+                loss.backward()#retain_graph=True)
             
             batchwise_accuracy = check_cost(weights, label, output)
             

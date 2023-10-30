@@ -13,7 +13,7 @@ import time
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
 
 
-def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False):
+def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False): # Shortest path finder
         batch_size, height, width = matrices.size()
         outputs = []
 
@@ -71,5 +71,24 @@ class DijskstraClass(torch.autograd.Function):
     def backward(ctx, grad_output):
         input_ = ctx.saved_tensors
         #why are we doing this?
+         
+        return grad_output #* input_[0]
+
+####################################################### Knapsack algorithm
+
+def Knapsack(matrices):
+    return None
+    
+    
+class KnapsackClass(torch.autograd.Function):
+    
+    @staticmethod
+    def forward(ctx, input):
+        ctx.save_for_backward(input)
+        result = Knapsack(input)
+        return result
+    @staticmethod
+    def backward(ctx, grad_output):
+        input_ = ctx.saved_tensors
          
         return grad_output #* input_[0]
