@@ -36,7 +36,7 @@ class ConcreteDropout(nn.Module) : # This is a Pytorch custom dropout layer
 
         # Calculate the regularizers
         input_dim = x.size(1)
-        weight_regularizer = self.weight_regularizer * torch.sum(self.layer.weight**2) / (1. - self.p)
+        #weight_regularizer = self.weight_regularizer * torch.sum(self.layer.weight**2) / (1. - self.p)
 
         dropout_regularizer = (self.p * torch.log(self.p) + ((1. - self.p) * torch.log(1. - self.p)))
         dropout_regularizer *= (self.dropout_regularizer * input_dim)

@@ -1,9 +1,10 @@
 import torch
+import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim
 import heapq
 import itertools
-from .graph import neighbours_8
+from .graph import neighbours_8, k_means
 from functools import partial
 import numpy as np
 from collections import namedtuple, defaultdict
@@ -74,21 +75,27 @@ class DijskstraClass(torch.autograd.Function):
          
         return grad_output #* input_[0]
 
-####################################################### Knapsack algorithm
+####################################################### Spectral Clustering on graphs
 
-def Knapsack(matrices):
-    return None
-    
-    
-class KnapsackClass(torch.autograd.Function):
-    
-    @staticmethod
-    def forward(ctx, input):
-        ctx.save_for_backward(input)
-        result = Knapsack(input)
-        return result
-    @staticmethod
-    def backward(ctx, grad_output):
-        input_ = ctx.saved_tensors
-         
-        return grad_output #* input_[0]
+def spectral_clustering(adjacency_matrix, num_clusters=2):
+    # Laplacian:
+    degree_matrix = torch.diag(torch.sum(adjacency_matrix, dim=1))
+    laplacian_matrix = degree_matrix - adjacency_matrix
+
+    # Eigenvalue Decomposition
+    eigenvalues, eigenvectors = torch.symeig(laplacian_matrix, eigenvectors=True)
+    eigenvectors = eigenvectors[:, 1:num_clusters+1]  # Use the first num_clusters eigenvectors
+    eigenvectors = F.normalize(eigenvectors, p=2, dim=1)
+
+    # K-Means for clustering
+    centroids, cluster_assignments = k_means(eigenvectors, num_clusters)
+
+    return cluster_assignments
+
+
+
+# Example usage:
+#adjacency_matrix = your_graph_representation  # Replace with your actual adjacency matrix
+#num_clusters = 3  # Replace with the desired number of clusters
+#cluster_assignments = spectral_clustering_pytorch(adjacency_matrix, num_clusters)
+

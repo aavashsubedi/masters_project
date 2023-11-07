@@ -57,12 +57,13 @@ class CombRenset18(nn.Module):
 
     def forward(self, x):
         x = self.resnet_model.conv1(x) #64, 48, 48
+        x = self.bn1(x)
         x = self.relu1(x) #64, 48, 48
-        #x = self.linear(x) # No change to shape
-        #x = self.relu1(x)
-        x = self.pool(x) #64, 12, 12
-        #x = self.concrete_dropout(x) # This does dropout on a convolutional layer !!!! Check if this is ok. Must use small amount of dropout
+        x = self.resnet_model.layer1(x)
+        x = self.resnet_model.maxpool(x)
 
+        x = self.pool(x) #64, 12, 12
+        
         x = x.mean(dim=1)
         cnn_output = x.abs()
 
@@ -108,6 +109,6 @@ class GradientApproximator(torch.autograd.Function):
         #t1 = time.time()
         #print(t1-t0)
 
-        new_grads = -(1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
+        new_grads = -(1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output) 
 
         return new_grads, new_grads
