@@ -3,3 +3,5 @@ data/
 outputs/
 wandb/
 model/__pycache__
+venv/
+./venv
