@@ -11,7 +11,7 @@ import time
 #add a autograd function
 
 
-device = torch.device("gpu" if torch.cuda.is_available() else "cpu") # Put on every file
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
 
 
 

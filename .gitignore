@@ -5,3 +5,5 @@ wandb/
 model/__pycache__
 venv/
 ./venv
+./logs
+logs/
