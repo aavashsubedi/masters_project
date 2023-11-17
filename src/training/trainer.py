@@ -20,17 +20,16 @@ torch.backends.cudnn.benchmark = False
 
 def test_func(cnn_input):
     #we need to first take a copy of this and then detach it pass it through djistktra.
-
     pass 
 
 
 def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
-    optimizer = get_optimizer(cfg, model)
-    criterion = HammingLoss()
-    model.train().to(device)
-    gradient_approximater = GradientApproximator(model, input_shape=(cfg.batch_size, 12, 12))
-    
 
+    optimizer = get_optimizer(cfg, model) # Adam
+    criterion = HammingLoss()
+    model.train().to(device) # Model is the ResNet
+    # gradient_approximater = GradientApproximator(model, input_shape=(cfg.batch_size, 12, 12))
+    
     if cfg.scheduler:
         scheduler = get_scheduler_one_cycle(cfg, optimizer, len(train_dataloader), cfg.epochs)
     else:
@@ -48,9 +47,6 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
 
         for data in pbar_data:
             data, label, weights = data
-            data.to(device)
-            label.to(device)
-            weights.to(device)
 
             output, cnn_output = model(data) # 0.9s per step for batch=32
             #output.to(device)
@@ -58,11 +54,11 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
 
             if epoch < 0: # When does this happen?
                 loss = criterion_2(cnn_output, weights)
-                loss.backward()#retain_graph=True) # retain_graph allows concrete_dropout to work. But adds 1s per step
+                loss.backward() # retain_graph=True) # retain_graph allows concrete_dropout to work. But adds 1s per step
                 # Somewhere in the architecture there are multiple calls to backward()
             else:
                 loss = criterion(output, label)
-                loss.backward()#retain_graph=True)
+                loss.backward() #retain_graph=True)
             
             batchwise_accuracy = check_cost(weights, label, output)
             
@@ -70,7 +66,7 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
             scheduler.step()
 
             pbar_data.set_postfix(loss=loss.item())
-            #plot_grad_flow(model.named_parameters())
+            plot_grad_flow(model.named_parameters())
 
             wandb.log({"loss": loss.item()})
             wandb.log({"batchwise_accuracy": batchwise_accuracy})

@@ -93,9 +93,7 @@ def spectral_clustering(adjacency_matrix, num_clusters=2):
     return cluster_assignments
 
 
-
 # Example usage:
-#adjacency_matrix = your_graph_representation  # Replace with your actual adjacency matrix
-#num_clusters = 3  # Replace with the desired number of clusters
-#cluster_assignments = spectral_clustering_pytorch(adjacency_matrix, num_clusters)
+adjacency_matrix = None
+cluster_assignments = spectral_clustering(adjacency_matrix, 2)
 

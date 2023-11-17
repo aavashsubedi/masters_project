@@ -7,6 +7,7 @@ from src.utils.loss import HammingLoss
 from math import sqrt
 from .combinatorial_solvers import Dijkstra, DijskstraClass
 from src.utils.concrete_dropout import ConcreteDropout
+import numpy as np
 import time
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
@@ -42,8 +43,6 @@ class CombRenset18(nn.Module):
         #self.last_conv = nn.Conv2d(128, 1, kernel_size=1,  stride=1)
         self.linear = nn.Linear(48, 64) # I HARDCODED THE NUMBERS # Fully connected layer to do dropout on
 
-        self.concrete_dropout = ConcreteDropout(self.linear) # Input the previous layer into Concrete Dropout to get its weights
-
         self.combinatorial_solver = DijskstraClass.apply
         self.grad_approx = GradientApproximator.apply
 
@@ -78,7 +77,7 @@ class CombRenset18(nn.Module):
     
 
 class GradientApproximator(torch.autograd.Function):
-    def __init__(self, model, input_shape, lambda_val=20):
+    def __init__(self, model, input_shape):
         self.input = None
         self.output = None
         self.prev_cnn_input = torch.rand(input_shape)
@@ -90,25 +89,62 @@ class GradientApproximator(torch.autograd.Function):
         #self.combinatorial_solver = DijskstraClass()
         self.labels = None
         self.cnn_loss = None
+    
 
     @staticmethod
     def forward(ctx, combinatorial_solver_output, cnn_output):
         ctx.save_for_backward(combinatorial_solver_output, cnn_output)
 
+        # Stuff for concrete dropout
+        ctx.weight_regulariser = 1e-2
+        ctx.dropout_regulariser = 1e5 
+
+        init_min, init_max = 0.1, 0.1
+        init_min = np.log(init_min) - np.log(1.0 - init_min)
+        init_max = np.log(init_max) - np.log(1.0 - init_max)
+
+        ctx.p_logit = nn.Parameter(torch.empty(1).uniform_(init_min, init_max)).to(device)
+        ctx.p = torch.sigmoid(ctx.p_logit).to(device)
+
+        ctx.regularisation = 0.0
+
         return combinatorial_solver_output
     
+
     @staticmethod
     def backward(ctx, grad_input): # Deviation from paper algo, calculate grad in function
-       
+        
+        """
+        # Linear interpolation
+        combinatorial_solver_output, cnn_output = ctx.saved_tensors
         lambda_val = 20
 
-        combinatorial_solver_output, cnn_output = ctx.saved_tensors
         perturbed_cnn_weights = cnn_output + torch.multiply(lambda_val, grad_input)
-        #t0 = time.time()
         perturbed_cnn_output = DijskstraClass.apply(perturbed_cnn_weights) # 0.8s
-        #t1 = time.time()
-        #print(t1-t0)
 
-        new_grads = -(1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output) 
+        new_grads = -(1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
+        import pdb; pdb.set_trace()
+
+        """
+        
+        # Concrete Dropout interpolation
+        eps = 1e-7
+        tmp = 0.1
+
+        ctx.p = torch.sigmoid(ctx.p_logit)
+        u_noise = torch.rand_like(grad_input)
+
+        drop_prob = (torch.log(ctx.p + eps) -
+                     torch.log(1 - ctx.p + eps) +
+                     torch.log(u_noise + eps) -
+                     torch.log(1 - u_noise + eps))
+
+        drop_prob = torch.sigmoid(drop_prob / tmp)
+
+        random_tensor = 1 - drop_prob
+        retain_prob = 1 - ctx.p
+
+        new_grads = - torch.mul(grad_input, random_tensor) / retain_prob # ADDING NEGATIVE SIGN TEST!!
+        
 
         return new_grads, new_grads

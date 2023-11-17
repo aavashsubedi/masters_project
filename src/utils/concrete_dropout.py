@@ -4,43 +4,162 @@ This is the continuous analog to the usual discrete form of dropout.
 
 """
 import torch
+import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn, optim, Tensor
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
 
+class ConcreteDropout(nn.Module):
 
-class ConcreteDropout(nn.Module) : # This is a Pytorch custom dropout layer
-    def __init__(self, layer, weight_regularizer=1e-6, dropout_regularizer=1e-5) :
-        super(ConcreteDropout, self).__init__()
+    """Concrete Dropout.
 
-        self.layer = layer.to(device)
-        self.weight_regularizer = weight_regularizer
-        self.dropout_regularizer = dropout_regularizer
-        self.p_logit = nn.Parameter(torch.tensor(1., device=device))
-        self.p_logit.data.uniform_(-2., 0.)
-        self.p = torch.sigmoid(self.p_logit).to(device)
+    Implementation of the Concrete Dropout module as described in the
+    'Concrete Dropout' paper: https://arxiv.org/pdf/1705.07832
+    """
+
+    def __init__(self,
+                 weight_regulariser: float,
+                 dropout_regulariser: float,
+                 init_min: float = 0.1,
+                 init_max: float = 0.1) -> None:
+
+        """Concrete Dropout.
+
+        Parameters
+        ----------
+        weight_regulariser : float
+            Weight regulariser term.
+        dropout_regulariser : float
+            Dropout regulariser term.
+        init_min : float
+            Initial min value.
+        init_max : float
+            Initial max value.
+        """
+
+        super().__init__()
+
+        self.weight_regulariser = weight_regulariser
+        self.dropout_regulariser = dropout_regulariser
+
+        init_min = np.log(init_min) - np.log(1.0 - init_min)
+        init_max = np.log(init_max) - np.log(1.0 - init_max)
+
+        self.p_logit = nn.Parameter(torch.empty(1).uniform_(init_min, init_max))
+        self.p = torch.sigmoid(self.p_logit)
+
+        self.regularisation = 0.0
+
+    def forward(self, x: Tensor, layer: nn.Module) -> Tensor:
+
+        """Calculates the forward pass.
+
+        The regularisation term for the layer is calculated and assigned to a
+        class attribute - this can later be accessed to evaluate the loss.
+
+        Parameters
+        ----------
+        x : Tensor
+            Input to the Concrete Dropout.
+        layer : nn.Module
+            Layer for which to calculate the Concrete Dropout.
+
+        Returns
+        -------
+        Tensor
+            Output from the dropout layer.
+        """
+
+        output = layer(self._concrete_dropout(x))
+
+        sum_of_squares = 0
+        for param in layer.parameters():
+            sum_of_squares += torch.sum(torch.pow(param, 2))
+
+        weights_reg = self.weight_regulariser * sum_of_squares / (1.0 - self.p)
+
+        dropout_reg = self.p * torch.log(self.p)
+        dropout_reg += (1.0 - self.p) * torch.log(1.0 - self.p)
+        dropout_reg *= self.dropout_regulariser * x[0].numel()
+
+        self.regularisation = weights_reg + dropout_reg
+
+        return output
+
+    def _concrete_dropout(self, x: Tensor) -> Tensor:
+
+        """Computes the Concrete Dropout.
+
+        Parameters
+        ----------
+        x : Tensor
+            Input tensor to the Concrete Dropout layer.
+
+        Returns
+        -------
+        Tensor
+            Outputs from Concrete Dropout.
+        """
+
+        eps = 1e-7
+        tmp = 0.1
+
+        self.p = torch.sigmoid(self.p_logit)
+        u_noise = torch.rand_like(x)
+
+        drop_prob = (torch.log(self.p + eps) -
+                     torch.log(1 - self.p + eps) +
+                     torch.log(u_noise + eps) -
+                     torch.log(1 - u_noise + eps))
+
+        drop_prob = torch.sigmoid(drop_prob / tmp)
+
+        random_tensor = 1 - drop_prob
+        retain_prob = 1 - self.p
+
+        x = torch.mul(x, random_tensor) / retain_prob
+
+        return x
+    
 
 
-    def forward(self, x):
-        eps = 1e-7        # Small factor epsilon
-        temp = 1.0 / 10.0 # 'temperature' of distribution
-        unif_noise = torch.rand_like(x).to(device)
-        drop_prob = torch.sigmoid((torch.log(self.p + eps) - torch.log(1 - self.p + eps) +
-                     torch.log(unif_noise + eps) - torch.log(1 - unif_noise + eps)) / temp)
+def concrete_regulariser(model: nn.Module) -> nn.Module:
 
-        random_tensor = 1. - drop_prob
-        retain_prob = 1. - self.p
-        x = x * random_tensor  # Apply dropout
-        x = x / retain_prob  # Adjust for dropout rate
+    """Adds ConcreteDropout regularisation functionality to a nn.Module.
 
-        # Calculate the regularizers
-        input_dim = x.size(1)
-        #weight_regularizer = self.weight_regularizer * torch.sum(self.layer.weight**2) / (1. - self.p)
+    Parameters
+    ----------
+    model : nn.Module
+        Model for which to calculate the ConcreteDropout regularisation.
 
-        dropout_regularizer = (self.p * torch.log(self.p) + ((1. - self.p) * torch.log(1. - self.p)))
-        dropout_regularizer *= (self.dropout_regularizer * input_dim)
+    Returns
+    -------
+    model : nn.Module
+        Model with additional functionality.
+    """
 
-        #regularizer = weight_regularizer + dropout_regularizer  # Why need this????
+    def regularisation(self) -> Tensor:
 
-        return x #, regularizer
+        """Calculates ConcreteDropout regularisation for each module.
+
+        The total ConcreteDropout can be calculated by iterating through
+        each module in the model and accumulating the regularisation for
+        each compatible layer.
+
+        Returns
+        -------
+        Tensor
+            Total ConcreteDropout regularisation.
+        """
+
+        total_regularisation = 0
+        for module in filter(lambda x: isinstance(x, ConcreteDropout), self.modules()):
+            total_regularisation += module.regularisation
+
+        return total_regularisation
+
+    setattr(model, 'regularisation', regularisation)
+
+    return model
