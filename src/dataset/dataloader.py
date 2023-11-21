@@ -6,6 +6,7 @@ torch.cuda.manual_seed(42)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 np.random.seed(42)
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class NumpyDataset(Dataset):
     def __init__(self, data, targets=None, weights=None, transform=None):
@@ -23,7 +24,7 @@ class NumpyDataset(Dataset):
             if self.transform is not None:
                 data = self.transform(data)
             #not that efficent as we are converting to tensor on the fly
-            return torch.tensor(data), torch.tensor(target), torch.tensor(weights)
+            return torch.tensor(data, device=device), torch.tensor(target, device=device), torch.tensor(weights, device=device)
         # if self.targets is not None:
         #     return self.transform(self.data[idx]), self.targets[idx]
         # elif self.transform is not None:

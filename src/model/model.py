@@ -1,15 +1,13 @@
 import torch
-
-device = torch.device("cpu" if torch.cuda.is_available() else "cpu") # Put on every file
+import torchvision
 
 import torch.nn as nn
 import torch.optim as optim
-import torchvision
 import torch.nn.functional as F
 from src.utils.loss import HammingLoss
 from math import sqrt
 from .combinatorial_solvers import Dijkstra, DijskstraClass
-
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
 def glorot_initializer(shape):
     # Calculate the scale factor for Glorot initialization
     fan_in, fan_out = shape[0], shape[1]
@@ -35,13 +33,18 @@ class CombRenset18(nn.Module):
         super().__init__()
         self.resnet_model = torchvision.models.resnet18(pretrained=False, num_classes=out_features)
         del self.resnet_model.conv1
-        self.resnet_model.conv1 = nn.Conv2d(in_channels,
-         64, kernel_size=7, stride=2, padding=3, bias=False)
+
+        self.resnet_model.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
         output_shape = (int(sqrt(out_features)), int(sqrt(out_features)))
         self.pool = nn.AdaptiveMaxPool2d(output_shape)
         #self.last_conv = nn.Conv2d(128, 1, kernel_size=1,  stride=1)
+        self.linear = nn.Linear(48, 64) # I HARDCODED THE NUMBERS # Fully connected layer to do dropout on
+
+        #self.concrete_dropout = ConcreteDropout(self.linear) # Input the previous layer into Concrete Dropout to get its weights
+
         self.combinatorial_solver = DijskstraClass.apply
         self.grad_approx = GradientApproximator.apply
+
         #give us a normal convolution with the same shape as the input
         self.conv1_t = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
         #self.conv2_t = nn.Conv2d(12, 12, kernel_size=3, padding)
@@ -49,32 +52,27 @@ class CombRenset18(nn.Module):
         self.relu1 = nn.ReLU(inplace=True)
         self.cfg = cfg
 
+
     def forward(self, x):
         x = self.resnet_model.conv1(x) #64, 48, 48
-        #x = self.conv1_t(x)  #b, 64, 48, 48
-       # x = self.bn1(x) #64, 48, 48
+        x = self.bn1(x)
         x = self.relu1(x) #64, 48, 48
+        x = self.resnet_model.layer1(x)
+        x = self.resnet_model.maxpool(x)
+
         x = self.pool(x) #64, 12, 12
-        #x = se
-        # x = self.resnet_model.bn1(x)
-        # x = self.resnet_model.relu(x)
-        # x = self.resnet_model.maxpool(x) #64, 64, 24
-        # x = self.resnet_model.layer1(x)
-        #x = self.resnet_model.layer2(x)
-        #x = self.resnet_model.layer3(x)
-        #x = self.last_conv(x)
+        
         x = x.mean(dim=1)
-       # import pdb; pdb.set_trace()
         cnn_output = x.abs()
+
         if self.cfg.normalise:
             pass
             #we want here to unnormalise the cnn_output. Essentially shifting by mean and multiplying by std
 
-
         combinatorial_solver_output = self.combinatorial_solver(cnn_output)
         x = self.grad_approx(combinatorial_solver_output, cnn_output)
+
         return x, cnn_output #shape is 32, 12, 12
-    
 
 class GradientApproximator(torch.autograd.Function):
     def __init__(self, model, input_shape,

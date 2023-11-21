@@ -4,6 +4,7 @@ from src.model.model import get_model
 from src.training.trainer import trainer
 
 def run(cfg):
+    import pdb; pdb.set_trace()
     train_dataloader = get_dataloader(cfg, mode="train")
     val_dataloader = get_dataloader(cfg, mode="val")
     test_dataloader = get_dataloader(cfg, mode="test")

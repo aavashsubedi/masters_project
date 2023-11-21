@@ -38,5 +38,5 @@ def plot_grad_flow(named_parameters, second_model_params = None):
                 Line2D([0], [0], color="b", lw=4),
                 Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
     #save the plot
-    plt.savefig("/workspaces/masters_project/outputs/gradients/grad_flow.png")
+    plt.savefig("/share/nas2/asubedi/masters_project/outputs/gradients/grad_flow.png")
     plt.show(block=True)

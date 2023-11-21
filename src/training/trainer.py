@@ -1,7 +1,7 @@
 from src.training.optimizers import get_optimizer, get_scheulder_one_cycle, get_flat_scheduler
 from src.utils.loss import HammingLoss
 import torch
-device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 from tqdm import tqdm
 from src.utils.visualise_gradients import plot_grad_flow
 import wandb
@@ -80,6 +80,9 @@ def trainer(cfg, train_dataloader, val_dataloader,
             # else:
             #     continue
             data, label, weights = data
+            data.to(device)
+            label.to(device)
+            weights.to(device)
 
             
             output, cnn_output = model(data)
