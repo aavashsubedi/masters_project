@@ -10,3 +10,5 @@ logs/
 data/warcraft_shortest_path_oneskin/
 /workspaces/masters_project/data/warcraft_shortest_path.tar.gz
 /workspaces/masters_project/data/warcraft_shortest_path_oneskin
+*.cpython-*
+__pycache__/
