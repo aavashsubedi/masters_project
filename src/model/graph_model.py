@@ -78,7 +78,10 @@ class DeBugModel(torch.nn.Module):
         
         # x = global_max_pool(x, data.batch)
         return x    
-def get_graph_model(cfg, ):
+
+
+
+def get_graph_model(cfg, warcraft=True):
     model = DeBugModel(cfg)
     """
     after this we can basically output a [512, n] vector

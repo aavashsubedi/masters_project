@@ -9,7 +9,8 @@ np.random.seed(42)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class NumpyDataset(Dataset):
-    def __init__(self, data, targets=None, weights=None, transform=None):
+    def __init__(self, data, targets=None,
+                  weights=None, transform=None):
         self.data = data
         self.targets = targets
         self.weights = weights
