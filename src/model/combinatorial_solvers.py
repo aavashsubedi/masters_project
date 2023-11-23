@@ -91,9 +91,3 @@ def spectral_clustering(adjacency_matrix, num_clusters=2):
     centroids, cluster_assignments = k_means(eigenvectors, num_clusters)
 
     return cluster_assignments
-
-
-# Example usage:
-adjacency_matrix = None
-cluster_assignments = spectral_clustering(adjacency_matrix, 2)
-

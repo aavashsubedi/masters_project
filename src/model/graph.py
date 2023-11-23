@@ -37,4 +37,5 @@ def k_means(data, num_clusters, max_iters=100):
         if torch.equal(new_centroids, centroids):
             break
         centroids = new_centroids
+        
     return centroids, cluster_assignments

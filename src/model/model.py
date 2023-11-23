@@ -144,7 +144,7 @@ class GradientApproximator(torch.autograd.Function):
         random_tensor = 1 - drop_prob
         retain_prob = 1 - ctx.p
 
-        new_grads = - torch.mul(grad_input, random_tensor) / retain_prob # ADDING NEGATIVE SIGN TEST!!
+        new_grads = - 20 * torch.mul(grad_input, random_tensor) / retain_prob # TESTING MULTIPLICATION BY 20
         
 
         return new_grads, new_grads

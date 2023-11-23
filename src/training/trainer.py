@@ -47,7 +47,6 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
 
         for data in pbar_data:
             data, label, weights = data
-
             output, cnn_output = model(data) # 0.9s per step for batch=32
             #output.to(device)
             cnn_output.to(device)
