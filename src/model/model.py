@@ -8,6 +8,7 @@ from math import sqrt
 from .combinatorial_solvers import Dijkstra, DijskstraClass
 from src.utils.concrete_dropout import ConcreteDropout
 import numpy as np
+import wandb
 import time
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
@@ -144,7 +145,9 @@ class GradientApproximator(torch.autograd.Function):
         random_tensor = 1 - drop_prob
         retain_prob = 1 - ctx.p
 
-        new_grads = - 20 * torch.mul(grad_input, random_tensor) / retain_prob # TESTING MULTIPLICATION BY 20
+        new_grads = - torch.mul(grad_input, random_tensor) / retain_prob # TESTING MULTIPLICATION BY 20
+
+        wandb.log({"abs-mean-new-gradients": torch.mean(torch.abs(new_grads[0])).item()})
         
 
         return new_grads, new_grads
