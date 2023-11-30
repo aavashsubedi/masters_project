@@ -13,7 +13,7 @@
 echo "Starting run at: `date`"
 # print hello world every 30min
 while true; do
-    echo "Hello World"
-
+    # echo "Hello World"
+    pass
 done
 #python main.py
