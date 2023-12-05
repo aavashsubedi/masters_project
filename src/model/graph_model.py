@@ -10,15 +10,14 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 class DeBugModel(torch.nn.Module):
-    def __init__(self, cfg, ):
+    def __init__(self, cfg):
         super(DeBugModel, self).__init__()
      #   self.cfg = cfg
     
         node_embed_dim = 32
 
         self.gine_pred_module = torch.nn.Sequential(
-            torch.nn.Linear(1,
-                             node_embed_dim),
+            torch.nn.Linear(1, node_embed_dim),
             torch.nn.LeakyReLU(),
             torch.nn.Linear(node_embed_dim, node_embed_dim),
             torch.nn.LeakyReLU(),
@@ -52,6 +51,7 @@ class DeBugModel(torch.nn.Module):
         # self.embed_features = torch.nn.Embedding(10, node_embed_dim).to(device)
         # self.linear_raw = torch.nn.Linear(12, node_embed_dim).to(device) 
 
+
     def forward(self, data, embedding_output=False,
                 additional_feat=True):
         x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
@@ -77,6 +77,7 @@ class DeBugModel(torch.nn.Module):
         # x = global_max_pool(x, data.batch)
         return x    
     
+    
 def get_graph_model(cfg, ):
     model = DeBugModel(cfg)
     """
@@ -87,6 +88,7 @@ def get_graph_model(cfg, ):
     How do we add the constraint that each of the models can 
     """
     return model
+
 
 def test_model():
     model = get_graph_model(None)
