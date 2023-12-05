@@ -9,6 +9,8 @@ from functools import partial
 import numpy as np
 from collections import namedtuple, defaultdict
 import time
+import torch_geometric as pyg 
+import networkx as nx
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
@@ -67,6 +69,28 @@ class DijskstraClass(torch.autograd.Function):
     def forward(ctx, input):
         ctx.save_for_backward(input)
         result = Dijkstra(input)
+        return result
+    @staticmethod
+    def backward(ctx, grad_output):
+        input_ = ctx.saved_tensors
+        #why are we doing this?
+         
+        return grad_output #* input_[0]
+    
+####################################################### Dijkstra on graphs
+def DijkstraGraph(graph):
+    nx_graph = pyg.utils.to_networkx(graph)
+    path = nx.shortest_path(nx_graph, source=0, target=122)
+
+    return torch.tensor(path)
+
+
+class DijskstraGraphClass(torch.autograd.Function):
+    
+    @staticmethod
+    def forward(ctx, input):
+        ctx.save_for_backward(input)
+        result = DijkstraGraph(input) # Input must be a graph
         return result
     @staticmethod
     def backward(ctx, grad_output):

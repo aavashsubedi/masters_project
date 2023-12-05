@@ -13,6 +13,7 @@ tracking_metric: "loss"
 
 #directories to change 
 data_dir: "data/warcraft_shortest_path_oneskin"
+processed_warcraft_dir: "data/warcraft_gnn/processed"
 chkpt_dir: ""
 logs_dir: ""
 weights_dir: ""
@@ -23,7 +24,7 @@ cnn_hidden: "64"
 cnn_kernel_size: "3"
 
 #for optimiser
-lr: 5e-4
+lr: 0.001
 weight_decay: 0
 gradient_clipping: 0
 dropout: 0  
@@ -37,6 +38,6 @@ num_epochs: 50
 #dataset
 warcraft_tile: "12"
 normalise: true
-batch_size: 70
+batch_size: 32
 map_weights_mean: 3.9269
 man_weights_std: 3.3777
