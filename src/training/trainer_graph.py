@@ -10,6 +10,7 @@ from torchviz import make_dot
 from copy import deepcopy
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 #set seed
 torch.manual_seed(42)
 torch.cuda.manual_seed(42)
@@ -22,7 +23,7 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
             test_dataloader, model):
     optimizer = get_optimizer(cfg, model)
     #given our output is a vector of size [num_nodes, 1], and the target is the same, 
-    #we can just use the HammingLoss
+    #we can just use the HammingLOss
     criterion = HammingLoss()
     model.train().to(device)
     gradient_approximater = GradientApproximator(model, input_shape=(cfg.batch_size, 12, 12))
@@ -34,7 +35,8 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
         scheduler = get_flat_scheduler(cfg, optimizer)
     early_stop_counter = 0
     curr_epoch = 0
-    pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining", leave=False)
+    pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining",
+                        leave=False)
                         
     #create a MSE loss criterion 
     criterion_2 = torch.nn.MSELoss()
@@ -44,7 +46,7 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
     weights_copy = None
     epoch = 0
     total_accuracy = []
-    evaluate(model, val_dataloader, criterion, mode="val")
+    # evaluate(model, val_dataloader, criterion, mode="val")
 
     for epoch in pbar_epochs:
 
@@ -68,44 +70,21 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
             #     i += 1
             # else:
             #     continue
-            data, label, weights = data
-            data.to(device)
-            label.to(device)
-            weights.to(device)
-
-
-            output, cnn_output = model(data)
-            if epoch < 0:
-                loss = criterion_2(cnn_output, weights)
-                loss.backward()
-            else:
-                loss = criterion(output, label)
-                loss.backward()
+            data = data.to(device) #label, weights = data
+            label = data.centroid_in_path.to(device)
+            #weights.to(device)
             
-            batchwise_accuracy = check_cost(weights, label, output)
-            
-            #abs_output = output.abs() #not sure if this workls
-            #loss = test_fn(abs_output)
-            #loss = criterion(abs_output, label)
-
+            output, graph = model(data)
+            output = output.to(device)
             #import pdb; pdb.set_trace()
-            #output = gradient_approximater.forward(gradient_approximater,
-            #                                                output, label) # Used forward instead of apply() for GPU friendliness
-            #output.backward()
-            #new_gradients = gradient_approximater.backward(gradient_approximater)
-            #shortest_path.backward()
-            #abs_output.backward(new_gradients)
-            #gradient_approximater.backward(gradient_approximater)
-            #this is just doing the hamming loss it doesnt do anything else.
-            #loss = criterion(abs_output.detach(), label).detach()
 
-            #simport pdb; pdb.set_trace()
-            #optimizer.zero_grad()
-            #loss.backward()
+            loss = criterion(output, label)
+            loss.backward()
+
             optimizer.step()
             scheduler.step()
             pbar_data.set_postfix(loss=loss.item())
-            plot_grad_flow(model.named_parameters())
+           # plot_grad_flow(model.named_parameters())
 
             #dot = make_dot(loss, params=dict(model.named_parameters()))
             #import pdb; pdb.set_trace() 
@@ -114,8 +93,8 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
             # torch.nn.utils.clip_grad_norm_(model.parameters(),
             #                                 cfg.gradient_clipping)
             wandb.log({"loss": loss.item()})
-            wandb.log({"batchwise_accuracy": batchwise_accuracy})
+           # wandb.log({"batchwise_accuracy": batchwise_accuracy})
     
-            #data_copy = deepcopy(data)
-        evaluate(model, val_dataloader, criterion, mode="val")
-    evaluate(model, test_dataloader, criterion, mode="test")
+    #         #data_copy = deepcopy(data)
+    #     evaluate(model, val_dataloader, criterion, mode="val")
+    # evaluate(model, test_dataloader, criterion, mode="test")

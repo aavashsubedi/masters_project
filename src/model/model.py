@@ -114,7 +114,6 @@ class GradientApproximator(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_input): # Deviation from paper algo, calculate grad in function
-        
         """
         # Linear interpolation
         combinatorial_solver_output, cnn_output = ctx.saved_tensors
@@ -147,7 +146,7 @@ class GradientApproximator(torch.autograd.Function):
 
         new_grads = - torch.mul(grad_input, random_tensor) / retain_prob # TESTING MULTIPLICATION BY 20
 
-        wandb.log({"abs-mean-new-gradients": torch.mean(torch.abs(new_grads[0])).item()})
+        #wandb.log({"abs-mean-new-gradients": torch.mean(torch.abs(new_grads[0])).item()})
         
 
         return new_grads, new_grads

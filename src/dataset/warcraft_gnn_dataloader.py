@@ -19,7 +19,7 @@ class ITRLoader(InMemoryDataset):
         self.cfg = cfg
         self.mode = mode
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.pre_path = ""
+        self.pre_path = "data/warcraft_gnn/processed/"
         super(ITRLoader, self).__init__(root, transform, None)
         self.data, self.slices = torch.load(self.processed_paths[-1],
                                             map_location=self.device)
@@ -65,12 +65,13 @@ class ITRLoader(InMemoryDataset):
             graph_list = convert_warcraft_dataset(data_maps, 
                                                 data_labels, 
                                                 data_vertex_weights)      
-        import pdb; pdb.set_trace()
-        test_path = "/share/nas2/asubedi/masters_project/data/warcraft_gnn/processed/"
+        
+        test_path = "data/warcraft_gnn/processed/"
         #data_list = list(itertools.chain.from_iterable(graph_list))
         data, slices = self.collate(graph_list)
         if self.mode == "train":
             torch.save((data, slices), self.pre_path + "train.pt")
+            import pdb; pdb.set_trace()
         elif self.mode == "val":
             torch.save((data, slices), self.pre_path + "val.pt")
         else:

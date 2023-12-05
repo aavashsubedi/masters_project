@@ -2,6 +2,5 @@ mphys/
 data/
 outputs/
 wandb/
-model/__pycache__
 *.cpython-*
 __pycache__/

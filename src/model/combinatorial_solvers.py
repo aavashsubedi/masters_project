@@ -79,23 +79,34 @@ class DijskstraClass(torch.autograd.Function):
         return grad_output #* input_[0]
     
 ####################################################### Dijkstra on graphs
-def DijkstraGraph(graph):
+def DijkstraGraph(x, graph, target=122):
+    # x is the GNN weights
+    graph.x = x
     nx_graph = pyg.utils.to_networkx(graph)
-    path = nx.shortest_path(nx_graph, source=0, target=122)
+    path = nx.shortest_path(nx_graph, source=0, target=target)
 
-    return torch.tensor(path)
+    # path is a set of integers, we want to create a tensor
+    #where the path is 1 and the rest is 0 of size target
+
+    #create a tensor of size target
+    path_tensor = torch.zeros(target+1)
+    #set the path nodes to 1
+    path_tensor[path] = 1
+
+    return path_tensor
 
 
-class DijskstraGraphClass(torch.autograd.Function):
+class DijkstraGraphClass(torch.autograd.Function):
     
     @staticmethod
-    def forward(ctx, input):
-        ctx.save_for_backward(input)
-        result = DijkstraGraph(input) # Input must be a graph
+    def forward(ctx, x, graph):
+        ctx.graph = graph
+        result = DijkstraGraph(x, graph) # Input must be a graph
         return result
+    
     @staticmethod
     def backward(ctx, grad_output):
-        input_ = ctx.saved_tensors
+        #input_ = ctx.saved_tensors
         #why are we doing this?
          
         return grad_output #* input_[0]

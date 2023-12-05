@@ -30,6 +30,7 @@ def path_to_graph(centroids, label, sensitivity=0.25,
     
     return torch.tensor(centroid_is_path)
 
+
 def convert_image_to_graph(image, num_segments, label, compactness=10, sigma=0.0):
     """
     We have an image of size 12x12. We want to convert this into a graph
