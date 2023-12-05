@@ -64,12 +64,13 @@ def Dijkstra(matrices, neighbourhood_fn=neighbours_8, request_transitions=False)
     
     
 class DijskstraClass(torch.autograd.Function):
-    
+
     @staticmethod
     def forward(ctx, input):
         ctx.save_for_backward(input)
         result = Dijkstra(input)
         return result
+    
     @staticmethod
     def backward(ctx, grad_output):
         input_ = ctx.saved_tensors
