@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 
 class HammingLoss(torch.nn.Module):
     def __init__(self):
@@ -17,6 +18,17 @@ class HammingLoss(torch.nn.Module):
         # errors = prediction * (1.0 - targets) + (1.0 - prediction) * targets
         # self.loss = errors.mean(dim=0).sum()
         return self.loss
+# class WarcraftGNNLoss(torch.nn.Module):
+#     def __init__(self):
+#         super().__init__()
+#         self.loss = nn.BCELoss()
+#     def forward(self, prediction, targets):
+#         #We have a vector of size [num_nodes, 1],
+#         #target is also a vector of size [num_nodes, 1]
+#         #find the binary cross entropy loss
+#         #import pdb; pdb.set_trace()
+        
+
 
 # loss = HammingLoss()
 # prediction = torch.tensor([[0.5, 0.5, 0.5, 0.5]])

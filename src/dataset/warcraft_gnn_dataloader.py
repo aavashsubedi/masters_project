@@ -66,8 +66,9 @@ class ITRLoader(InMemoryDataset):
                                                 data_labels, 
                                                 data_vertex_weights)      
         import pdb; pdb.set_trace()
-        data_list = list(itertools.chain.from_iterable(graph_list))
-        data, slices = self.collate(data_list)
+        test_path = "/share/nas2/asubedi/masters_project/data/warcraft_gnn/processed/"
+        #data_list = list(itertools.chain.from_iterable(graph_list))
+        data, slices = self.collate(graph_list)
         if self.mode == "train":
             torch.save((data, slices), self.pre_path + "train.pt")
         elif self.mode == "val":
