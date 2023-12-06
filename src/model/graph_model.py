@@ -174,6 +174,10 @@ class GradApproxGraph(torch.autograd.Function):
 
         new_grads = - (1 / lambda_val) * (combinatorial_solver_output - perturbed_gnn_output)
 
+        # Create an artificial gradient for x
+        dummy_loss = new_grads.sum().requires_grad_()  # Define a dummy loss
+        fake_grad_x = torch.zeros_like(x) #torch.autograd.grad(dummy_loss, x, create_graph=True, allow_unused=True)[0]
+
         import pdb; pdb.set_trace()
         
-        return new_grads, (new_grads.reshape((123,1))).to(device).requires_grad_(True), None
+        return new_grads, fake_grad_x, None
