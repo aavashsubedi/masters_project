@@ -55,39 +55,20 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
         wandb.watch(model)
         i = 0
         for data in pbar_data:
+            optimizer.zero_grad()
             
-            # if data_copy != None:
-            #     #skip the loop
-            #     continue
-            # if i == 0:
-            #     if data_copy == None:
-            #         data, label, weights = data
-            #         data_copy = deepcopy(data)
-            #         label_copy = deepcopy(label) 
-            #         weights_copy = deepcopy(weights)
-            #     data, label, weights  = data_copy, label_copy, weights_copy
-            #     # import pdb; pdb.set_trace()
-            #     i += 1
-            # else:
-            #     continue
+
             data = data.to(device) #label, weights = data
             label = data.centroid_in_path.to(device)
-            #weights.to(device)
             
-            output, graph = model(data)
+            output = model(data)
             output = output.to(device)
-            #import pdb; pdb.set_trace()
-
+            
             loss = criterion(output, label)
             loss.backward()
 
             optimizer.step()
             scheduler.step()
-            pbar_data.set_postfix(loss=loss.item())
-           # plot_grad_flow(model.named_parameters())
-
-            #dot = make_dot(loss, params=dict(model.named_parameters()))
-            #import pdb; pdb.set_trace() 
             
             #uncessary at the moment
             # torch.nn.utils.clip_grad_norm_(model.parameters(),

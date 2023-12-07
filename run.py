@@ -8,12 +8,13 @@ from src.dataset.warcraft_gnn_dataloader import ITRLoader
 
 
 def run(cfg):
-#     train_dataloader = get_dataloader(cfg, mode="train")
-#     val_dataloader = get_dataloader(cfg, mode="val")
-#     test_dataloader = get_dataloader(cfg, mode="test")
-#     model = get_model(cfg)
-#     trainer(cfg, train_dataloader, val_dataloader,
-#             test_dataloader, model)
+        # train_dataloader = get_dataloader(cfg, mode="train")
+        # val_dataloader = get_dataloader(cfg, mode="val")
+        # test_dataloader = get_dataloader(cfg, mode="test")
+        # model = get_model(cfg)
+        # trainer(cfg, train_dataloader, val_dataloader,
+        #         test_dataloader, model)
+        # pass
         root = "masters_project/data/warcraft_gnn/"
         train_dataset = ITRLoader(cfg, root, mode="train")
         model = get_graph_model(cfg)

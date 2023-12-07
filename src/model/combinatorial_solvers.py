@@ -93,7 +93,7 @@ def DijkstraGraph(x, graph, target=122):
     #set the path nodes to 1
     path_tensor[path] = 1
 
-    return path_tensor
+    return path_tensor.requires_grad_(True).to(device)
 
 
 class DijkstraGraphClass(torch.autograd.Function):
@@ -101,15 +101,17 @@ class DijkstraGraphClass(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, graph):
         ctx.graph = graph
-        result = DijkstraGraph(x, graph) # Input must be a graph
+        result = DijkstraGraph(x, graph,
+                               target=x.shape[0] - 1) # Input must be a graph
         return result
     
     @staticmethod
     def backward(ctx, grad_output):
         #input_ = ctx.saved_tensors
         #why are we doing this?
-         
-        return grad_output #* input_[0]
+        #grad_output.shape = [123]
+        grad_output = grad_output.unsqueeze(-1)
+        return grad_output, None #* input_[0]
 
 ####################################################### Spectral Clustering on graphs
 

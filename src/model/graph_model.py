@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GINEConv, GCNConv
 from torch_geometric.nn import global_max_pool
 from .combinatorial_solvers import DijkstraGraph, DijkstraGraphClass
+import copy
 
    
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -109,11 +110,13 @@ class WarCraftModel(torch.nn.Module):
         x = torch.nn.ReLU()(x)
         x = self.conv3(x, edge_index, edge_attr.float())
         #x = global_max_pool(x, data.batch) # This might not work (issues with shape?)
+        #gradients have issues here. 
+        #x.shape here is [123, 1]. so maybe we unsqueeze here
 
         combinatorial_solver_output = self.combinatorial_solver(x, data)
         x = self.grad_approx(combinatorial_solver_output, x, data)
 
-        return x, data 
+        return x 
 
 
 def get_graph_model(cfg, warcraft=True):
@@ -132,11 +135,10 @@ def test_model():
     model.to(device)
     data = torch.load("masters_project/data/graph_dataset.pt")
     output = model(data)
-    import pdb; pdb.set_trace()
 
     
 class GradApproxGraph(torch.autograd.Function):
-    def __init__(self, model, input_data, lambda_val=0.1,
+    def __init__(self, model, input_data, lambda_val=20,
                  example_input=None):
         """
         input_data here is a graph with the correct edges. and setup.
@@ -165,19 +167,15 @@ class GradApproxGraph(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_input):
-        lambda_val = 0.1
+        lambda_val = 20
         combinatorial_solver_output, x = ctx.saved_tensors
         graph = ctx.graph
 
         perturbed_gnn_weights = x + torch.multiply(lambda_val, grad_input.to(device))
         perturbed_gnn_output = DijkstraGraphClass.apply(perturbed_gnn_weights, graph)
-
         new_grads = - (1 / lambda_val) * (combinatorial_solver_output - perturbed_gnn_output)
-
-        # Create an artificial gradient for x
-        dummy_loss = new_grads.sum().requires_grad_()  # Define a dummy loss
-        fake_grad_x = torch.zeros_like(x) #torch.autograd.grad(dummy_loss, x, create_graph=True, allow_unused=True)[0]
-
-        import pdb; pdb.set_trace()
         
-        return new_grads, fake_grad_x, None
+        new_grads_2 = copy.deepcopy(new_grads)
+        new_grads_2.requires_grad_(True).unsqueeze_(-1)
+        
+        return new_grads, new_grads_2, None

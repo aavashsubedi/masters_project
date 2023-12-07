@@ -105,8 +105,8 @@ def convert_warcraft_dataset(data_maps, data_vertex_weights, data_labels,
     #use tqdm
     for i in tqdm(range(len(data_maps))):
         graph_list.append(convert_image_to_graph(data_maps[i], 200, data_labels[i]))
-        if i == 3:
-            break
+#        if i == 3:
+ #           break
     return graph_list
     # test = data_maps[0]
     # test_label = data_labels[0]
