@@ -40,7 +40,7 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
     #create a MSE loss criterion 
     criterion_2 = torch.nn.MSELoss()
     
-    epoch = 0
+    counter = 0
     for epoch in pbar_epochs:
         pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}", leave=False)
         wandb.watch(model)
@@ -70,7 +70,13 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
             wandb.log({"loss": loss.item()})
             wandb.log({"batchwise_accuracy": batchwise_accuracy})
 
+            import pdb; pdb.set_trace()
+
         evaluate(model, val_dataloader, criterion, mode="val")
+        counter += 1
+        if counter==30:
+            scheduler.get_last_lr()
+
     evaluate(model, test_dataloader, criterion, mode="test")
 
     return None
