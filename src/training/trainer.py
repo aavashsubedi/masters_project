@@ -99,8 +99,7 @@ def trainer(cfg, train_dataloader, val_dataloader,
         if curr_val_acc >= best_val_acc:
             best_val_acc = curr_val_acc
             temp_acc = curr_val_acc
-            file_path = cfg.save_model_path + "warcraft_cnn_" +
-                        str(epoch) + "_" + str(temp_acc) + ".pt"
+            file_path = cfg.save_model_path + "warcraft_cnn_" + str(epoch) + "_" + str(temp_acc) + ".pt"
             best_model_weights = model.state_dict()
             best_epoch = epoch
         if curr_val_acc < best_val_acc:
