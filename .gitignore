@@ -7,3 +7,4 @@ venv/
 ./venv
 ./logs
 logs/
+run_sweep.sh

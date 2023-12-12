@@ -89,6 +89,8 @@ class WarCraftModel(torch.nn.Module):
         self.bn1 = torch.nn.BatchNorm1d(32)
         self.bn2 = torch.nn.BatchNorm1d(32)
         self.bn3 = torch.nn.BatchNorm1d(32)
+        self.grad_approx = GradApproxGraph.apply
+        self.combinatorial_solver = NewDjikstra.apply
 
     def forward(self, data, embedding_output=False,
                 additional_feat=True):
@@ -151,6 +153,10 @@ class GradApproxGraph(torch.autograd.Function):
     def backward(ctx, grad_input):
         lambda_val = 0.1
         combinatorial_solver_output, gnn_output = ctx.saved_tensors
+        pertubred_gnn.x = gnn_output + torch.multiply(10.0, grad_input)
+        perturebed_output = NewDjikstra(pertubed_gnn)
+        new_grads = (perturebed_output - combinatorial_solver_output) / 10.0
+        return new_grads, new_grads
         # pertubed_gnn.x = gnn_output
         # pass 
         pass 

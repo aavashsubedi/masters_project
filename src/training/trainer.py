@@ -56,6 +56,7 @@ def trainer(cfg, train_dataloader, val_dataloader,
     epoch = 0
     total_accuracy = []
     evaluate(model, val_dataloader, criterion, mode="val")
+    best_val_acc = 0
 
     for epoch in pbar_epochs:
 
@@ -65,20 +66,6 @@ def trainer(cfg, train_dataloader, val_dataloader,
         i = 0
         for data in pbar_data:
             
-            # if data_copy != None:
-            #     #skip the loop
-            #     continue
-            # if i == 0:
-            #     if data_copy == None:
-            #         data, label, weights = data
-            #         data_copy = deepcopy(data)
-            #         label_copy = deepcopy(label) 
-            #         weights_copy = deepcopy(weights)
-            #     data, label, weights  = data_copy, label_copy, weights_copy
-            #     # import pdb; pdb.set_trace()
-            #     i += 1
-            # else:
-            #     continue
             data, label, weights = data
             data.to(device)
             label.to(device)
@@ -94,32 +81,11 @@ def trainer(cfg, train_dataloader, val_dataloader,
                 loss.backward()
             
             batchwise_accuracy = check_cost(weights, label, output)
-            
-            #abs_output = output.abs() #not sure if this workls
-            #loss = test_fn(abs_output)
-            #loss = criterion(abs_output, label)
-
-            #import pdb; pdb.set_trace()
-            #output = gradient_approximater.forward(gradient_approximater,
-            #                                                output, label) # Used forward instead of apply() for GPU friendliness
-            #output.backward()
-            #new_gradients = gradient_approximater.backward(gradient_approximater)
-            #shortest_path.backward()
-            #abs_output.backward(new_gradients)
-            #gradient_approximater.backward(gradient_approximater)
-            #this is just doing the hamming loss it doesnt do anything else.
-            #loss = criterion(abs_output.detach(), label).detach()
-
-            #simport pdb; pdb.set_trace()
-            #optimizer.zero_grad()
-            #loss.backward()
             optimizer.step()
             scheduler.step()
             pbar_data.set_postfix(loss=loss.item())
             plot_grad_flow(model.named_parameters())
 
-            #dot = make_dot(loss, params=dict(model.named_parameters()))
-            #import pdb; pdb.set_trace() 
             
             #uncessary at the moment
             # torch.nn.utils.clip_grad_norm_(model.parameters(),
@@ -128,5 +94,25 @@ def trainer(cfg, train_dataloader, val_dataloader,
             wandb.log({"batchwise_accuracy": batchwise_accuracy})
     
             #data_copy = deepcopy(data)
-        evaluate(model, val_dataloader, criterion, mode="val")
+        val_results = evaluate(model, val_dataloader, criterion, mode="val")
+        curr_val_acc = val_results[-1]
+        if curr_val_acc >= best_val_acc:
+            best_val_acc = curr_val_acc
+            temp_acc = curr_val_acc
+            file_path = cfg.save_model_path + "warcraft_cnn_" +
+                        str(epoch) + "_" + str(temp_acc) + ".pt"
+            best_model_weights = model.state_dict()
+            best_epoch = epoch
+        if curr_val_acc < best_val_acc:
+            early_stop_counter += 1
+            if early_stop_counter >= cfg.patience:
+                print("Early Stopping")
+                break
+        else:
+            early_stop_counter = 0 
+            best_val_acc = curr_val_acc
+        del val_results
+    
+    torch.save(best_model_weights, file_path)
+    model.load_state_dict(torch.load(file_path))
     evaluate(model, test_dataloader, criterion, mode="test")
