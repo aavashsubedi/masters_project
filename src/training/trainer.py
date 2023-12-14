@@ -65,12 +65,10 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
             scheduler.step()
 
             pbar_data.set_postfix(loss=loss.item())
-            plot_grad_flow(model.named_parameters())
+            #plot_grad_flow(model.named_parameters())
 
             wandb.log({"loss": loss.item()})
             wandb.log({"batchwise_accuracy": batchwise_accuracy})
-
-            import pdb; pdb.set_trace()
 
         evaluate(model, val_dataloader, criterion, mode="val")
         counter += 1
@@ -78,5 +76,6 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
             scheduler.get_last_lr()
 
     evaluate(model, test_dataloader, criterion, mode="test")
+    torch.save(model.state_dict(), "trained_model.pth")
 
     return None
