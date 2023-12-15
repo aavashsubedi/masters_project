@@ -58,3 +58,52 @@ def evaluate(model, data_loader, criterion,
     wandb.log(results)
 
     return None
+
+########################### FOR GRAPHS ########################################
+def check_cost_graph(true_weights, true_path, predicted_path):
+    """
+    We will compute the true cost of each path and then compare. if they are not equal to each other
+    within a margin of error we will count thas a wrong prediction.
+    We will do this using the true weights of each vertex because if the model produces the wrong weights
+    then it could have a lower cost : )
+    """
+    #multiply each element of true_weights by the corresponding element of true_path
+    # true_cost = torch.dot(true_weights, true_path)
+    true_cost_b = true_weights * true_path
+    true_cost_sum = true_cost_b.view(true_path.shape[0], -1).sum(dim=-1)
+    predicted_cost_b = true_weights * predicted_path
+    predicted_cost_sum = predicted_cost_b.view(true_path.shape[0], -1).sum(dim=-1)
+
+    return torch.sum(predicted_cost_sum == true_cost_sum) / true_path.shape[0]
+
+
+@torch.no_grad()
+def evaluate_graph(model, data_loader, criterion, 
+            mode="validation"):
+    start = time.time()
+    #model.evaluate()
+    accuracy = []
+    losses = []
+
+    for data in data_loader:
+        data = data.to(device)
+        label = data.centroid_in_path.to(device)
+
+        output = model(data)
+
+        # HELP WITH THE REST
+        batchwise_accuracy = check_cost(weights, label, output)
+        accuracy.append(batchwise_accuracy)
+        loss = criterion(output, label)
+        losses.append(loss.item())
+
+    avg_loss = sum(losses) / len(losses)
+    avg_accuracy = sum(accuracy) / len(accuracy)
+    end = time.time() - start
+    results = {f"{mode}_loss": avg_loss,
+               f"{mode}_accuracy": avg_accuracy,
+            }
+    
+    wandb.log(results)
+
+    return None

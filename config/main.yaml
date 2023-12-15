@@ -38,6 +38,6 @@ num_epochs: 50
 #dataset
 warcraft_tile: "12"
 normalise: true
-batch_size: 32
+batch_size: 70
 map_weights_mean: 3.9269
 man_weights_std: 3.3777
