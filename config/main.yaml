@@ -1,9 +1,10 @@
 project_name: "combinatorial_optimisation"
 name: "example"
-seed: "1"
+seed: "42"
 num_workers: 0
 
 sampler: "default"
+run_type: "plain"  #use plain/gnn etc 
 
 #wandb
 metric: "loss"
@@ -14,6 +15,7 @@ tracking_metric: "loss"
 #directories to change 
 data_dir: "data/warcraft_shortest_path_oneskin"
 processed_warcraft_dir: "data/warcraft_gnn/processed"
+save_model_path: "data/pretrained_models"
 chkpt_dir: ""
 logs_dir: ""
 weights_dir: ""
