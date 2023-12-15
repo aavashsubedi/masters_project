@@ -32,7 +32,7 @@ def check_cost(true_weights, true_path, predicted_path):
 @torch.no_grad()
 def evaluate(model, data_loader, criterion, 
             mode="validation"):
-    start = time.time()
+    
     #model.evaluate()
     accuracy = []
     losses = []
@@ -47,14 +47,13 @@ def evaluate(model, data_loader, criterion,
         accuracy.append(batchwise_accuracy)
         loss = criterion(output, label)
         losses.append(loss.item())
-
+    #import pdb; pdb.set_trace()
     avg_loss = sum(losses) / len(losses)
     avg_accuracy = sum(accuracy) / len(accuracy)
-    end = time.time() - start
+
     results = {f"{mode}_loss": avg_loss,
                f"{mode}_accuracy": avg_accuracy,
             }
-    
     wandb.log(results)
 
-    return None
+    return [avg_loss, avg_accuracy]

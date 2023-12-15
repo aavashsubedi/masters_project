@@ -55,23 +55,21 @@ class ITRLoader(InMemoryDataset):
         """
         Reads the image data and converts it into a graph
         """
-        
+        #import pdb; pdb.set_trace()
         #go through every file in the directory and process them
-        if self.mode == "train":
-            data_path = self.cfg.data_dir + "/12x12/"
-            data_maps = np.load(data_path + self.mode + "_maps.npy").astype(np.float32)
-            data_labels = np.load(data_path + self.mode + "_shortest_paths.npy").astype(np.float32)
-            data_vertex_weights = np.load(data_path + self.mode + "_vertex_weights.npy").astype(np.float32)
-            graph_list = convert_warcraft_dataset(data_maps, 
-                                                data_labels, 
-                                                data_vertex_weights)      
+        data_path = self.cfg.data_dir + "/12x12/"
+        data_maps = np.load(data_path + self.mode + "_maps.npy").astype(np.float32)
+        data_labels = np.load(data_path + self.mode + "_shortest_paths.npy").astype(np.float32)
+        data_vertex_weights = np.load(data_path + self.mode + "_vertex_weights.npy").astype(np.float32)
+        graph_list = convert_warcraft_dataset(data_maps, 
+                                            data_labels, 
+                                            data_vertex_weights)
         
         test_path = "data/warcraft_gnn/processed/"
         #data_list = list(itertools.chain.from_iterable(graph_list))
         data, slices = self.collate(graph_list)
         if self.mode == "train":
             torch.save((data, slices), self.pre_path + "train.pt")
-            import pdb; pdb.set_trace()
         elif self.mode == "val":
             torch.save((data, slices), self.pre_path + "val.pt")
         else:
@@ -79,4 +77,6 @@ class ITRLoader(InMemoryDataset):
 
     def get(self, idx:int):
         data = super().get(idx)
-        return data 
+        #dataloader = DataLoader(self.data, batch_size=self.cfg.batch_size,                             
+         #               shuffle=True, num_workers=self.cfg.num_workers)
+        return data # Don't want to return a dataloader at every iteration! 

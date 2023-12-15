@@ -1,4 +1,4 @@
-from src.training.optimizers import get_optimizer, get_scheduler_one_cycle, get_flat_scheduler
+from src.training.optimizers import get_optimizer, get_scheduler_one_cycle, get_flat_scheduler, warcraft_paper_scheduler
 from src.utils.loss import HammingLoss
 import torch
 from tqdm import tqdm
@@ -23,59 +23,85 @@ def test_func(cnn_input):
     pass 
 
 
-def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
-
-    optimizer = get_optimizer(cfg, model) # Adam
+def trainer(cfg, train_dataloader, val_dataloader,
+            test_dataloader, model):
+    optimizer = get_optimizer(cfg, model)
     criterion = HammingLoss()
-    model.train().to(device) # Model is the ResNet
-    # gradient_approximater = GradientApproximator(model, input_shape=(cfg.batch_size, 12, 12))
+    model.train().to(device)
+    gradient_approximater = GradientApproximator(model, input_shape=(cfg.batch_size, 12, 12))
+   # dijs = DijskstraClass()
     
     if cfg.scheduler:
         scheduler = get_scheduler_one_cycle(cfg, optimizer, len(train_dataloader), cfg.epochs)
     else:
-        scheduler = get_flat_scheduler(cfg, optimizer)
+        scheduler = warcraft_paper_scheduler(cfg, optimizer)
+    early_stop_counter = 0
 
-    pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining", leave=False)
+    pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining",
+                        leave=False)
                         
     #create a MSE loss criterion 
     criterion_2 = torch.nn.MSELoss()
     
-    counter = 0
+    epoch = 0
+    evaluate(model, val_dataloader, criterion, mode="val")
+    best_val_acc = 0
+
     for epoch in pbar_epochs:
-        pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}", leave=False)
+
+        pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}",
+                         leave=False)
         wandb.watch(model)
 
         for data in pbar_data:
+            
             data, label, weights = data
-            output, cnn_output = model(data) # 0.9s per step for batch=32
-            #output.to(device)
-            cnn_output.to(device)
+            data.to(device)
+            label.to(device)
+            weights.to(device)
 
-            if epoch < 0: # When does this happen?
+            
+            output, cnn_output = model(data)
+            if epoch < 0:
                 loss = criterion_2(cnn_output, weights)
-                loss.backward() # retain_graph=True) # retain_graph allows concrete_dropout to work. But adds 1s per step
-                # Somewhere in the architecture there are multiple calls to backward()
+                loss.backward()
             else:
                 loss = criterion(output, label)
-                loss.backward() #retain_graph=True)
+                loss.backward()
             
             batchwise_accuracy = check_cost(weights, label, output)
-            
             optimizer.step()
             scheduler.step()
 
             pbar_data.set_postfix(loss=loss.item())
             #plot_grad_flow(model.named_parameters())
 
+            
+            #uncessary at the moment
+            # torch.nn.utils.clip_grad_norm_(model.parameters(),
+            #                                 cfg.gradient_clipping)
             wandb.log({"loss": loss.item()})
             wandb.log({"batchwise_accuracy": batchwise_accuracy})
-
-        evaluate(model, val_dataloader, criterion, mode="val")
-        counter += 1
-        if counter==30:
-            scheduler.get_last_lr()
-
+    
+            #data_copy = deepcopy(data)
+        val_results = evaluate(model, val_dataloader, criterion, mode="val")
+        curr_val_acc = val_results[-1]
+        if curr_val_acc >= best_val_acc:
+            best_val_acc = curr_val_acc
+            temp_acc = curr_val_acc
+            file_path = cfg.save_model_path + "warcraft_cnn_" + str(epoch) + "_" + str(temp_acc) + ".pt"
+            best_model_weights = model.state_dict()
+            best_epoch = epoch
+        if curr_val_acc < best_val_acc:
+            early_stop_counter += 1
+            if early_stop_counter >= cfg.patience:
+                print("Early Stopping")
+                break
+        else:
+            early_stop_counter = 0 
+            best_val_acc = curr_val_acc
+        del val_results
+    
+    torch.save(best_model_weights, file_path)
+    model.load_state_dict(torch.load(file_path))
     evaluate(model, test_dataloader, criterion, mode="test")
-    torch.save(model.state_dict(), "trained_model.pth")
-
-    return None

@@ -112,6 +112,7 @@ class WarCraftModel(torch.nn.Module):
         #x = global_max_pool(x, data.batch) # This might not work (issues with shape?)
         #gradients have issues here. 
         #x.shape here is [123, 1]. so maybe we unsqueeze here
+        # NUMBER OF NODES PER GRAPH VARIES
 
         combinatorial_solver_output = self.combinatorial_solver(x, data)
         x = self.grad_approx(combinatorial_solver_output, x, data)
@@ -174,7 +175,7 @@ class GradApproxGraph(torch.autograd.Function):
         perturbed_gnn_output = DijkstraGraphClass.apply(perturbed_gnn_weights, graph)
         new_grads = - (1 / lambda_val) * (combinatorial_solver_output - perturbed_gnn_output)
         
-        new_grads_2 = copy.deepcopy(new_grads)
-        new_grads_2.requires_grad_(True).unsqueeze_(-1)
-        
+        new_grads_2 = copy.deepcopy(new_grads).to(device)
+        new_grads_2.requires_grad_(True)
+
         return new_grads, new_grads_2, None

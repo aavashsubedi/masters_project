@@ -79,21 +79,32 @@ class DijskstraClass(torch.autograd.Function):
         return grad_output #* input_[0]
     
 ####################################################### Dijkstra on graphs
-def DijkstraGraph(x, graph, target=122):
-    # x is the GNN weights
-    graph.x = x
-    nx_graph = pyg.utils.to_networkx(graph)
-    path = nx.shortest_path(nx_graph, source=0, target=target)
+def DijkstraGraph(x_array, graphs):
 
-    # path is a set of integers, we want to create a tensor
-    #where the path is 1 and the rest is 0 of size target
+    output = []
 
-    #create a tensor of size target
-    path_tensor = torch.zeros(target+1)
-    #set the path nodes to 1
-    path_tensor[path] = 1
+    # GNN weights are (nx1) tensor of ALL nodes.
+    # Keep a mark of where we are in the array.
+    mark_x = 0 
+    for batch_idx in range(len(graphs)):
+        graph = graphs[batch_idx]
+        target = graph.num_nodes - 1
+        x = x_array[mark_x : mark_x+graph.num_nodes]
+        mark_x += graph.num_nodes
+        
+        graph.x = x
+        nx_graph = pyg.utils.to_networkx(graph)
+        path = nx.shortest_path(nx_graph, source=0, target=target)
 
-    return path_tensor.requires_grad_(True).to(device)
+        # path is a set of integers, we want to create a tensor
+        #where the path is 1 and the rest is 0 of size target
+        #create a tensor of size target
+        path_tensor = torch.zeros(target+1)
+        #set the path nodes to 1
+        path_tensor[path] = 1
+        output.append(path_tensor.unsqueeze(0))
+
+    return torch.cat([i for i in output], dim=-1).T.requires_grad_(True)
 
 
 class DijkstraGraphClass(torch.autograd.Function):
@@ -101,8 +112,7 @@ class DijkstraGraphClass(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, graph):
         ctx.graph = graph
-        result = DijkstraGraph(x, graph,
-                               target=x.shape[0] - 1) # Input must be a graph
+        result = DijkstraGraph(x, graph) # Input must be a graph
         return result
     
     @staticmethod
@@ -110,8 +120,8 @@ class DijkstraGraphClass(torch.autograd.Function):
         #input_ = ctx.saved_tensors
         #why are we doing this?
         #grad_output.shape = [123]
-        grad_output = grad_output.unsqueeze(-1)
-        return grad_output, None #* input_[0]
+
+        return grad_output.to(device), None #* input_[0]
 
 ####################################################### Spectral Clustering on graphs
 
