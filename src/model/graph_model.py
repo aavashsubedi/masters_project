@@ -86,7 +86,7 @@ class WarCraftModel(torch.nn.Module):
         super(WarCraftModel, self).__init__()
         self.cfg = cfg
         self.conv1 = GCNConv(3, 32)
-        self.conv2 = GCNConv(32, 32)
+        #self.conv2 = GCNConv(32, 32)
         self.conv3 = GCNConv(32, 1)
         self.bn1 = torch.nn.BatchNorm1d(32)
         self.bn2 = torch.nn.BatchNorm1d(32)
@@ -105,9 +105,9 @@ class WarCraftModel(torch.nn.Module):
         x = self.conv1(x, edge_index, edge_attr.float())
         x = self.bn1(x)
         x = torch.nn.ReLU()(x)
-        x = self.conv2(x, edge_index, edge_attr.float())
-        x = self.bn2(x)
-        x = torch.nn.ReLU()(x)
+        #x = self.conv2(x, edge_index, edge_attr.float())
+        #x = self.bn2(x)
+        #x = torch.nn.ReLU()(x)
         x = self.conv3(x, edge_index, edge_attr.float())
         #x = global_max_pool(x, data.batch) # This might not work (issues with shape?)
         #gradients have issues here. 
@@ -164,7 +164,6 @@ class GradApproxGraph(torch.autograd.Function):
         ctx.graph = graph_obj # save_for_backward doesn't work for non-tensors
         
         return combinatorial_solver_output
-
 
     @staticmethod
     def backward(ctx, grad_input):

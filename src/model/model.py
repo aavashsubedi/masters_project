@@ -122,7 +122,7 @@ class GradientApproximator(torch.autograd.Function):
         perturbed_cnn_weights = cnn_output + torch.multiply(lambda_val, grad_input)
         perturbed_cnn_output = DijskstraClass.apply(perturbed_cnn_weights) # 0.8s
 
-        new_grads = -(1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
+        new_grads = - (1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
         
         """
         # Concrete Dropout interpolation

@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR, StepLR
+from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR, StepLR, MultiStepLR
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -27,3 +27,16 @@ def get_flat_scheduler(cfg, optimizer, num_steps_per_epoch=None, num_epochs=None
     
     step_size = 1000000
     return StepLR(optimizer, step_size=step_size)
+
+
+def warcraft_paper_scheduler(cfg, optimizer, change_lr_epochs=[30, 40],
+                             gamma=0.1):
+    """
+    The paper reduces the leaarning rate at epochs 30 and 40 by 1/10
+    what this means is. 
+
+    if lr_0 = 10, at 30: lr_30 = 1, lr_40 = 0.1
+    """
+    scheduler = MultiStepLR(optimizer, milestones=change_lr_epochs, 
+                            gamma=gamma)
+    return scheduler
