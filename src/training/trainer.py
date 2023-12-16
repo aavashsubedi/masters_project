@@ -11,12 +11,6 @@ import time
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-#set seed
-torch.manual_seed(42)
-torch.cuda.manual_seed(42)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-
 
 def test_func(cnn_input):
     #we need to first take a copy of this and then detach it pass it through djistktra.
@@ -25,6 +19,13 @@ def test_func(cnn_input):
 
 def trainer(cfg, train_dataloader, val_dataloader,
             test_dataloader, model):
+    
+    #set seed
+    torch.manual_seed(cfg.seed)
+    torch.cuda.manual_seed(cfg.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
     optimizer = get_optimizer(cfg, model)
     criterion = HammingLoss()
     model.train().to(device)
@@ -34,7 +35,7 @@ def trainer(cfg, train_dataloader, val_dataloader,
     if cfg.scheduler:
         scheduler = get_scheduler_one_cycle(cfg, optimizer, len(train_dataloader), cfg.num_epochs)
     else:
-        scheduler = warcraft_paper_scheduler(cfg, optimizer)
+        scheduler = warcraft_paper_scheduler(cfg, optimizer) # previously get_flat_scheduler
     early_stop_counter = 0
 
     pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining",
@@ -89,7 +90,7 @@ def trainer(cfg, train_dataloader, val_dataloader,
         if curr_val_acc >= best_val_acc:
             best_val_acc = curr_val_acc
             temp_acc = curr_val_acc
-            file_path = cfg.save_model_path + "warcraft_cnn_" + str(epoch) + "_" + str(temp_acc) + ".pt"
+            file_path = cfg.save_model_path + "/warcraft_cnn_" + str(epoch) + "_" + str(temp_acc) + ".pt"
             best_model_weights = model.state_dict()
             best_epoch = epoch
         if curr_val_acc < best_val_acc:
