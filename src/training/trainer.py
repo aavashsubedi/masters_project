@@ -33,9 +33,9 @@ def trainer(cfg, train_dataloader, val_dataloader,
    # dijs = DijskstraClass()
     
     if cfg.scheduler:
-        scheduler = get_scheduler_one_cycle(cfg, optimizer, len(train_dataloader), cfg.epochs)
+        scheduler = get_scheduler_one_cycle(cfg, optimizer, len(train_dataloader), cfg.num_epochs)
     else:
-        scheduler = warcraft_paper_scheduler(cfg, optimizer)
+        scheduler = warcraft_paper_scheduler(cfg, optimizer) # previously get_flat_scheduler
     early_stop_counter = 0
 
     pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining",
