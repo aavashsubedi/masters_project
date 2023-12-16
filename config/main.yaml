@@ -1,6 +1,6 @@
 project_name: "combinatorial_optimisation"
 name: "example"
-seed: "42"
+seed: "1"
 num_workers: 0
 
 sampler: "default"

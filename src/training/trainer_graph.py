@@ -8,19 +8,22 @@ from src.model.model import GradientApproximator
 from src.model.combinatorial_solvers import Dijkstra, DijskstraClass
 from torchviz import make_dot
 from copy import deepcopy
+from .evaluate import check_cost, evaluate
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-#set seed
-torch.manual_seed(42)
-torch.cuda.manual_seed(42)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
 
-from .evaluate import check_cost, evaluate
+
 
 def trainer_graph(cfg, train_dataloader, val_dataloader,
             test_dataloader, model):
+    
+    #set seed
+    torch.manual_seed(cfg.seed)
+    torch.cuda.manual_seed(cfg.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
     optimizer = get_optimizer(cfg, model)
     #given our output is a vector of size [num_nodes, 1], and the target is the same, 
     #we can just use the HammingLOss
@@ -41,9 +44,9 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
     criterion_2 = torch.nn.MSELoss()
     
     epoch = 0
-    total_accuracy = []
     # evaluate(model, val_dataloader, criterion, mode="val")
 
+    file_path = cfg.save_model_path + "/warcraft_gnn_" + str(epoch) + ".pt"
     for epoch in pbar_epochs:
 
         pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}",
@@ -63,7 +66,7 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
             #import pdb; pdb.set_trace()
             loss.backward()
 
-            #batchwise_accuracy = check_cost(weights, label, output)
+            batchwise_accuracy = check_cost(weights, label, output)
 
             optimizer.step()
             scheduler.step()
@@ -72,8 +75,11 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
             # torch.nn.utils.clip_grad_norm_(model.parameters(),
             #                                 cfg.gradient_clipping)
             wandb.log({"loss": loss.item()})
-            #wandb.log({"batchwise_accuracy": batchwise_accuracy})
+            wandb.log({"batchwise_accuracy": batchwise_accuracy})
     
     #         #data_copy = deepcopy(data)
-        #evaluate(model, val_dataloader, criterion, mode="val")
-    #evaluate(model, test_dataloader, criterion, mode="test")
+        evaluate(model, val_dataloader, criterion, mode="val")
+
+    torch.save(model.state_dict(), file_path)
+    model.load_state_dict(torch.load(file_path))
+    evaluate(model, test_dataloader, criterion, mode="test")
