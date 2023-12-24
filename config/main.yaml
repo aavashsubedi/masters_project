@@ -1,6 +1,6 @@
 project_name: "combinatorial_optimisation"
 name: "example"
-seed: "42"
+seed: "1"
 num_workers: 0
 
 sampler: "default"
@@ -31,7 +31,7 @@ weight_decay: 0
 gradient_clipping: 0
 dropout: 0  
 batchnorm_eps: 0.1
-scheduler: True #if True we use OnecycleLR (behaves like cosine with annealing)
+scheduler: False #if True we use OnecycleLR (behaves like cosine with annealing)
 
 #early_stopping
 patience: 7

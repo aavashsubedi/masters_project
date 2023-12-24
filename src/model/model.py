@@ -59,8 +59,8 @@ class CombRenset18(nn.Module):
         x = self.resnet_model.conv1(x) #64, 48, 48
         x = self.bn1(x)
         x = self.relu1(x) #64, 48, 48
-        x = self.resnet_model.layer1(x)
         x = self.resnet_model.maxpool(x)
+        x = self.resnet_model.layer1(x)
 
         x = self.pool(x) #64, 12, 12
         

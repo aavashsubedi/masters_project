@@ -35,7 +35,7 @@ def trainer(cfg, train_dataloader, val_dataloader,
     if cfg.scheduler:
         scheduler = get_scheduler_one_cycle(cfg, optimizer, len(train_dataloader), cfg.num_epochs)
     else:
-        scheduler = warcraft_paper_scheduler(cfg, optimizer) # previously get_flat_scheduler
+        scheduler = get_flat_scheduler(cfg, optimizer) # previously get_flat_scheduler
     early_stop_counter = 0
 
     pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining",
@@ -96,8 +96,8 @@ def trainer(cfg, train_dataloader, val_dataloader,
         if curr_val_acc < best_val_acc:
             early_stop_counter += 1
             if early_stop_counter >= cfg.patience:
-                print("Early Stopping")
-                break
+               print("Early Stopping")
+               break
         else:
             early_stop_counter = 0 
             best_val_acc = curr_val_acc
