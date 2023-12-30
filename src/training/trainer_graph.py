@@ -8,10 +8,12 @@ from src.model.model import GradientApproximator
 from src.model.combinatorial_solvers import Dijkstra, DijskstraClass
 from torchviz import make_dot
 from copy import deepcopy
+from .evaluate import check_cost, evaluate
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-from .evaluate import check_cost, evaluate
+
+
 
 def trainer_graph(cfg, train_dataloader, val_dataloader,
             test_dataloader, model):
@@ -34,39 +36,37 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
         scheduler = get_scheduler_one_cycle(cfg, optimizer, len(train_dataloader), cfg.epochs)
     else:
         scheduler = get_flat_scheduler(cfg, optimizer)
-    early_stop_counter = 0
-    curr_epoch = 0
+
     pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining",
                         leave=False)
                         
     #create a MSE loss criterion 
     criterion_2 = torch.nn.MSELoss()
     
-    data_copy = None
-    label_copy = None
-    weights_copy = None
     epoch = 0
-    total_accuracy = []
     # evaluate(model, val_dataloader, criterion, mode="val")
 
+    file_path = cfg.save_model_path + "/warcraft_gnn_" + str(epoch) + ".pt"
     for epoch in pbar_epochs:
 
         pbar_data = tqdm(train_dataloader, desc=f"Epoch {epoch}",
                          leave=False)
         wandb.watch(model)
-        i = 0
         for data in pbar_data:
+            #import pdb; pdb.set_trace()
             optimizer.zero_grad()
             
-
-            data = data.to(device) #label, weights = data
+            data = data.to(device)
             label = data.centroid_in_path.to(device)
             
             output = model(data)
             output = output.to(device)
             
             loss = criterion(output, label)
+            #import pdb; pdb.set_trace()
             loss.backward()
+
+            batchwise_accuracy = check_cost(weights, label, output)
 
             optimizer.step()
             scheduler.step()
@@ -75,8 +75,11 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
             # torch.nn.utils.clip_grad_norm_(model.parameters(),
             #                                 cfg.gradient_clipping)
             wandb.log({"loss": loss.item()})
-           # wandb.log({"batchwise_accuracy": batchwise_accuracy})
+            wandb.log({"batchwise_accuracy": batchwise_accuracy})
     
     #         #data_copy = deepcopy(data)
-    #     evaluate(model, val_dataloader, criterion, mode="val")
-    # evaluate(model, test_dataloader, criterion, mode="test")
+        evaluate(model, val_dataloader, criterion, mode="val")
+
+    torch.save(model.state_dict(), file_path)
+    model.load_state_dict(torch.load(file_path))
+    evaluate(model, test_dataloader, criterion, mode="test")

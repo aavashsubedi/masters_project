@@ -1,0 +1,43 @@
+project_name: "combinatorial_optimisation"
+name: "example"
+seed: "1"
+num_workers: 0
+
+sampler: "default"
+
+#wandb
+metric: "loss"
+wandb: "online"
+tracking_metric: "loss"
+
+
+#directories to change 
+data_dir: "data/warcraft_shortest_path_oneskin"
+processed_warcraft_dir: "data/warcraft_gnn/processed"
+chkpt_dir: ""
+logs_dir: ""
+weights_dir: ""
+
+#for the basic cnn model
+cnn_layers: "3"
+cnn_hidden: "64"
+cnn_kernel_size: "3"
+
+#for optimiser
+lr: 0.0005
+weight_decay: 0
+gradient_clipping: 0
+dropout: 0  
+batchnorm_eps: 0.1
+scheduler: False #if True we use OnecycleLR (behaves like cosine with annealing)
+
+#early_stopping
+patience: 7
+num_epochs: 50
+
+#dataset
+warcraft_tile: "12"
+normalise: true
+batch_size: 70
+map_weights_mean: 3.9269
+man_weights_std: 3.3777
