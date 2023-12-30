@@ -54,25 +54,35 @@ class CombRenset18(nn.Module):
         self.relu1 = nn.ReLU(inplace=True)
         self.cfg = cfg
 
+        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=20, kernel_size=7, stride=1)
+        self.conv2 = nn.Conv2d(in_channels=20, out_channels=20, kernel_size=7, stride=1)
+
+        self.conv3 = nn.Conv2d(in_channels=20, out_channels=1, kernel_size=1, stride=1)
+
 
     def forward(self, x):
-        x = self.resnet_model.conv1(x) #64, 48, 48
-        x = self.bn1(x)
-        x = self.relu1(x) #64, 48, 48
-        x = self.resnet_model.maxpool(x)
-        x = self.resnet_model.layer1(x)
+        #x = self.resnet_model.conv1(x) #64, 48, 48
+        #x = self.bn1(x)
+        #x = self.relu1(x) #64, 48, 48
+        #x = self.resnet_model.maxpool(x)
+        #x = self.resnet_model.layer1(x)
 
-        x = self.pool(x) #64, 12, 12
+        #x = self.pool(x) #64, 12, 12
         
-        x = x.mean(dim=1)
-        cnn_output = x.abs()
+        #x = x.mean(dim=1)
+        #cnn_output = x.abs()
+
+        x = self.conv1(x)
+        x = self.pool(x)
+        x = self.conv3(x)
+        return x, x
 
         if self.cfg.normalise:
             pass
             #we want here to unnormalise the cnn_output. Essentially shifting by mean and multiplying by std
 
-        combinatorial_solver_output = self.combinatorial_solver(cnn_output)
-        x = self.grad_approx(combinatorial_solver_output, cnn_output)
+        #combinatorial_solver_output = self.combinatorial_solver(cnn_output)
+        #x = self.grad_approx(combinatorial_solver_output, cnn_output)
 
         return x, cnn_output #shape is 32, 12, 12
     
@@ -117,12 +127,12 @@ class GradientApproximator(torch.autograd.Function):
     
         # Linear interpolation
         combinatorial_solver_output, cnn_output = ctx.saved_tensors
-        lambda_val = 20
+        #lambda_val = 20
 
-        perturbed_cnn_weights = cnn_output + torch.multiply(lambda_val, grad_input)
-        perturbed_cnn_output = DijskstraClass.apply(perturbed_cnn_weights) # 0.8s
+        #perturbed_cnn_weights = cnn_output + torch.multiply(lambda_val, grad_input)
+        #perturbed_cnn_output = DijskstraClass.apply(perturbed_cnn_weights) # 0.8s
 
-        new_grads = - (1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
+        #new_grads = - (1 / lambda_val) * (combinatorial_solver_output - perturbed_cnn_output)
         
         """
         # Concrete Dropout interpolation
@@ -148,4 +158,4 @@ class GradientApproximator(torch.autograd.Function):
         #wandb.log({"abs-mean-new-gradients": torch.mean(torch.abs(new_grads[0])).item()})
         
 
-        return new_grads, new_grads
+        return grad_input, grad_input #new_grads, new_grads

@@ -1,5 +1,5 @@
 mphys/
-
+data/
 outputs/
 wandb/
 *.cpython-*

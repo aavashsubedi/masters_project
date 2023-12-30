@@ -1,6 +1,6 @@
 project_name: "combinatorial_optimisation"
 name: "example"
-seed: "1"
+seed: "0"
 num_workers: 0
 
 sampler: "default"
@@ -34,7 +34,7 @@ batchnorm_eps: 0.1
 scheduler: False #if True we use OnecycleLR (behaves like cosine with annealing)
 
 #early_stopping
-patience: 7
+patience: 100
 num_epochs: 50
 
 #dataset
