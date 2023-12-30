@@ -11,16 +11,17 @@ from copy import deepcopy
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-#set seed
-torch.manual_seed(42)
-torch.cuda.manual_seed(42)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-
 from .evaluate import check_cost, evaluate
 
 def trainer_graph(cfg, train_dataloader, val_dataloader,
             test_dataloader, model):
+    
+    #set seed
+    torch.manual_seed(cfg.seed)
+    torch.cuda.manual_seed(cfg.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
     optimizer = get_optimizer(cfg, model)
     #given our output is a vector of size [num_nodes, 1], and the target is the same, 
     #we can just use the HammingLOss

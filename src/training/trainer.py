@@ -1,4 +1,4 @@
-from src.training.optimizers import get_optimizer, get_scheduler_one_cycle, get_flat_scheduler
+from src.training.optimizers import get_optimizer, get_scheduler_one_cycle, get_flat_scheduler, warcraft_paper_scheduler
 from src.utils.loss import HammingLoss
 import torch
 from tqdm import tqdm
@@ -11,19 +11,18 @@ import time
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-#set seed
-torch.manual_seed(42)
-torch.cuda.manual_seed(42)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-
-
 def test_func(cnn_input):
     #we need to first take a copy of this and then detach it pass it through djistktra.
     pass 
 
 
 def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
+
+    #set seed
+    torch.manual_seed(cfg.seed)
+    torch.cuda.manual_seed(cfg.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     optimizer = get_optimizer(cfg, model) # Adam
     criterion = HammingLoss()
@@ -33,7 +32,7 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
     if cfg.scheduler:
         scheduler = get_scheduler_one_cycle(cfg, optimizer, len(train_dataloader), cfg.epochs)
     else:
-        scheduler = get_flat_scheduler(cfg, optimizer)
+        scheduler = warcraft_paper_scheduler(cfg, optimizer)
 
     pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining", leave=False)
                         
@@ -70,12 +69,7 @@ def trainer(cfg, train_dataloader, val_dataloader, test_dataloader, model):
             wandb.log({"loss": loss.item()})
             wandb.log({"batchwise_accuracy": batchwise_accuracy})
 
-            import pdb; pdb.set_trace()
-
         evaluate(model, val_dataloader, criterion, mode="val")
-        counter += 1
-        if counter==30:
-            scheduler.get_last_lr()
 
     evaluate(model, test_dataloader, criterion, mode="test")
 
