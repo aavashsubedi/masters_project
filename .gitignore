@@ -3,3 +3,8 @@ data/
 outputs/
 wandb/
 model/__pycache__
+venv/
+./venv
+./logs
+logs/
+run_sweep.sh

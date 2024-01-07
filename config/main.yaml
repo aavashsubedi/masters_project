@@ -2,7 +2,7 @@ project_name: "combinatorial_optimisation"
 name: "example"
 seed: "42"
 num_workers: 0
-
+run_type: "plain"  #use plan/gnn etc 
 sampler: "default"
 
 #wandb
@@ -13,7 +13,8 @@ tracking_metric: "loss"
 
 #directories to change 
 data_dir: "data/warcraft_shortest_path_oneskin"
-chkpt_dir: ""
+processed_warcraft_dir: "/share/nas2/asubedi/masters_project/data/warcraft_gnn/processed"
+save_model_path: "/share/nas2/asubedi/masters_project/data/pretrained_models"
 logs_dir: ""
 weights_dir: ""
 
@@ -38,3 +39,5 @@ num_epochs: 50
 warcraft_tile: "12"
 normalise: true
 batch_size: 32
+map_weights_mean: 3.9269
+man_weights_std: 3.3777

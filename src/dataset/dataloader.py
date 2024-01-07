@@ -1,11 +1,19 @@
 import torch
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+np.random.seed(42)
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class NumpyDataset(Dataset):
-    def __init__(self, data, targets=None, transform=None):
+    def __init__(self, data, targets=None,
+                  weights=None, transform=None):
         self.data = data
         self.targets = targets
+        self.weights = weights
         self.transform = transform
     def __len__(self):
         return len(self.data)
@@ -13,10 +21,11 @@ class NumpyDataset(Dataset):
         if self.targets is not None:
             data = self.data[idx]
             target = self.targets[idx]
+            weights = self.weights[idx]
             if self.transform is not None:
                 data = self.transform(data)
             #not that efficent as we are converting to tensor on the fly
-            return torch.tensor(data), torch.tensor(target)
+            return torch.tensor(data, device=device), torch.tensor(target, device=device), torch.tensor(weights, device=device)
         # if self.targets is not None:
         #     return self.transform(self.data[idx]), self.targets[idx]
         # elif self.transform is not None:
@@ -42,13 +51,28 @@ def get_dataloader(cfg, mode="train", targets=None, transform=None):
     data_vertex_weights = np.load(data_path + mode + "_vertex_weights.npy").astype(np.float32)
     #transpose to make channel first
     #why do this? doesnt really make much sense to me :| is it to support resnet?
+    #answer: yes!
     data_maps = data_maps.transpose(0, 3, 1, 2)
     
     #import pdb; pdb.set_trace()
-    # if cfg.normalise:
+    if cfg.normalise:
     #     #normalise the data to have zero mean and unit variance
         
-        
+        #standardise the data for mean and variance
+        mean = np.mean(data_maps, axis=(0, 2, 3), keepdims=True)
+        std = np.std(data_maps, axis=(0, 2, 3), keepdims=True)
+        data_maps -= mean
+        data_maps /= std
+        weights_max = np.max(data_vertex_weights)
+        weights_min = np.min(data_vertex_weights)
+        data_vertex_weights -= weights_min
+        data_vertex_weights /= weights_max
+        # weights_mean = np.mean(data_vertex_weights, axis=(0, 2, 3), keepdims=True)
+        # weights_std = np.std(data_vertex_weights, axis=(0, 2, 3), keepdims=True)
+        # data_vertex_weights -= weights_mean 
+        # data_vertex_weights /= weights_std
+#        import pdb; pdb.set_trace()
+
     #     mean = np.mean(data_maps, axis=(0, 2, 3), keepdims=True)
     #     import pdb; pdb.set_trace()
         
@@ -58,7 +82,7 @@ def get_dataloader(cfg, mode="train", targets=None, transform=None):
     #     data_maps /= std
     
     #now the files are loaded, convert them to a dataiterator
-    dataset = NumpyDataset(data_maps, data_labels, transform=transform)
+    dataset = NumpyDataset(data_maps, data_labels, transform=transform, weights=data_vertex_weights)
     dataloader = DataLoader(dataset, batch_size=cfg.batch_size,                             
                             shuffle=True, num_workers=cfg.num_workers)
     
