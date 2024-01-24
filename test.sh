@@ -8,7 +8,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --constraint=A100
 #SBATCH --exclusive
-#SBATCH --nodelist=compute-0-7
+#SBATCH --nodelist=compute-0-25
 
 echo "Starting run at: `date`"
 # print hello world every 30min
