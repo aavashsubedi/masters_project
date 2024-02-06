@@ -9,4 +9,8 @@
 #SBATCH --constraint=A100
 #SBATCH --exclusive
 
-python main.py
+echo "Starting run at: `date`"
+source /share/nas2/asubedi/masters_project/venv/bin/activate
+echo "Activated virtual environment"
+
+python /share/nas2/asubedi/masters_project/main.py

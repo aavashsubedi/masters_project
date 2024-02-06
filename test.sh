@@ -8,12 +8,9 @@
 #SBATCH --time=24:00:00
 #SBATCH --constraint=A100
 #SBATCH --exclusive
-#SBATCH --nodelist=compute-0-25
+#SBATCH --nodelist=compute-0-9
 
 echo "Starting run at: `date`"
-# print hello world every 30min
 while true; do
-    # echo "Hello World"
     pass
 done
-#python main.py

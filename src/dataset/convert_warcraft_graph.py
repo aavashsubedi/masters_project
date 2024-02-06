@@ -31,7 +31,34 @@ def path_to_graph(centroids, label, sensitivity=0.25,
     
     return torch.tensor(centroid_is_path)
 
-def convert_image_to_graph(image, num_segments, label, compactness=10, sigma=0.0):
+
+def path_to_graph_two(graph, weight_image):
+    graph.centroid = graph.centroid/95
+    graph.centroid = graph.centroid * 11
+    temp = np.round(graph.centroid.numpy()).astype(int)
+    values = weight_image[temp[:, 0], temp[:, 1]]
+    
+    #values = bilinear_interpolation(weight_image, graph.centroid)
+    graph.centroid_values = torch.tensor(values)
+    distances = torch.norm(graph.centroid, dim=1)
+    #find the index of the maximum distance
+    target = torch.argmax(distances).item()
+    x = graph.centroid_values
+    graph.x = x
+    nx_graph = pyg.utils.to_networkx(graph)
+    path = nx.shortest_path(nx_graph, source=0, target=target)
+
+    # path is a set of integers, we want to create a tensor
+    #where the path is 1 and the rest is 0 of size target
+    #create a tensor of size target
+    path_tensor = torch.zeros(graph.centroid.shape[0])
+    #set the path nodes to 1
+    path_tensor[path] = 1
+    path_tensor.unsqueeze(0)
+    graph.centroid_in_path = path_tensor
+    return graph
+def convert_image_to_graph(image, num_segments, label, compactness=10, sigma=0.0,
+			   weight_image=None):
     """
     We have an image of size 12x12. We want to convert this into a graph
     where the nodes are the pixels. The edges are the pixels that are adjacent
@@ -67,7 +94,7 @@ def convert_image_to_graph(image, num_segments, label, compactness=10, sigma=0.0
     regions = regionprops(segments)
 
     for region in regions:
-        rag.nodes[region['label']]['centroid'] = region['centroid']
+        rag.nodes[region['label']]['centroid'] = region['centroid'][::-1]
     graph = nx.Graph(rag)
 
     #graph = nx.Graph(graph_two)
@@ -80,7 +107,9 @@ def convert_image_to_graph(image, num_segments, label, compactness=10, sigma=0.0
     data.edge_attr = data.weight
     data.labels = data.labels - 1.0
     centroid_is_path = path_to_graph(data["centroid"], label)
-    data["centroid_in_path"] = centroid_is_path
+    data["centroid_in_path_raw"] = centroid_is_path
+    data = path_to_graph_two(data, weight_image)
+
     return data
     
     
@@ -88,24 +117,25 @@ def convert_warcraft_dataset(data_maps, data_vertex_weights, data_labels,
                               normalise=True):
     #transpose to make channel first
     #data_maps = data_maps.transpose(0, 3, 1, 2)
-    if normalise:
-        mean = np.mean(data_maps, axis=(0, 3, 1, 2), keepdims=True)
-        std = np.std(data_maps, axis=(0, 3, 1, 2), keepdims=True)
+    # if normalise:
+    #     mean = np.mean(data_maps, axis=(0, 3, 1, 2), keepdims=True)
+    #     std = np.std(data_maps, axis=(0, 3, 1, 2), keepdims=True)
 
-        # mean = np.mean(data_maps, axis=(0, 2, 3), keepdims=True)
-        # std = np.std(data_maps, axis=(0, 2, 3), keepdims=True)
-        data_maps -= mean
-        data_maps /= std
-        weights_max = np.max(data_vertex_weights)
-        weights_min = np.min(data_vertex_weights)
-        data_vertex_weights -= weights_min
-        data_vertex_weights /= weights_max
+    #     # mean = np.mean(data_maps, axis=(0, 2, 3), keepdims=True)
+    #     # std = np.std(data_maps, axis=(0, 2, 3), keepdims=True)
+    #     data_maps -= mean
+    #     data_maps /= std
+    #     weights_max = np.max(data_vertex_weights)
+    #     weights_min = np.min(data_vertex_weights)
+    #     data_vertex_weights -= weights_min
+    #     data_vertex_weights /= weights_max
     #apply the convert image to graph function to each image in parallel
     graph_list = []
     #use tqdm
     for i in tqdm(range(len(data_maps))):
-        graph_list.append(convert_image_to_graph(data_maps[i], 200, data_labels[i]))
-        if i == 3:
+        graph_list.append(convert_image_to_graph(data_maps[i], 200, data_labels[i],
+						weight_image=data_vertex_weights[i]))
+        if i > 10:
             break
     return graph_list
     # test = data_maps[0]

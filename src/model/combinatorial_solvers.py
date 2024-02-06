@@ -9,6 +9,8 @@ import numpy as np
 from collections import namedtuple, defaultdict
 import time
 #add a autograd function
+import torch_geometric as pyg 
+import networkx as nx
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # Put on every file
@@ -181,7 +183,66 @@ class DijskstraClass(torch.autograd.Function):
     
 
 
+def DijkstraGraph(x_array, graphs):
 
+    output = []
+
+    # GNN weights are (nx1) tensor of ALL nodes.
+    # Keep a mark of where we are in the array.
+    mark_x = 0 
+    for batch_idx in range(len(graphs)):
+        graph = graphs[batch_idx]
+        target = graph.num_nodes - 1
+        x = x_array[mark_x : mark_x+graph.num_nodes]
+        mark_x += graph.num_nodes
+        
+        graph.x = x
+        nx_graph = pyg.utils.to_networkx(graph)
+        path = nx.shortest_path(nx_graph, source=0, target=target)
+
+        # path is a set of integers, we want to create a tensor
+        #where the path is 1 and the rest is 0 of size target
+        #create a tensor of size target
+        path_tensor = torch.zeros(target+1)
+        #set the path nodes to 1
+        path_tensor[path] = 1
+        output.append(path_tensor.unsqueeze(0))
+
+    return torch.cat([i for i in output], dim=-1).T.requires_grad_(True)
+
+
+class DijkstraGraphClass(torch.autograd.Function):
+    
+    @staticmethod
+    def forward(ctx, x, graph):
+        ctx.graph = graph
+        result = DijkstraGraph(x, graph) # Input must be a graph
+        return result
+    
+    @staticmethod
+    def backward(ctx, grad_output):
+        #input_ = ctx.saved_tensors
+        #why are we doing this?
+        #grad_output.shape = [123]
+
+        return grad_output.to(device), None #* input_[0]
+
+####################################################### Spectral Clustering on graphs
+
+def spectral_clustering(adjacency_matrix, num_clusters=2):
+    # Laplacian:
+    degree_matrix = torch.diag(torch.sum(adjacency_matrix, dim=1))
+    laplacian_matrix = degree_matrix - adjacency_matrix
+
+    # Eigenvalue Decomposition
+    eigenvalues, eigenvectors = torch.symeig(laplacian_matrix, eigenvectors=True)
+    eigenvectors = eigenvectors[:, 1:num_clusters+1]  # Use the first num_clusters eigenvectors
+    eigenvectors = F.normalize(eigenvectors, p=2, dim=1)
+
+    # K-Means for clustering
+    centroids, cluster_assignments = k_means(eigenvectors, num_clusters)
+
+    return cluster_assignments
 
 # class Dijkstra(nn.Module): # Dijkstra algorithm is a combinatorial solver to find shortest paths
 #     def __init__(self):

@@ -5,7 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GINEConv, GCNConv
 from torch_geometric.nn import global_max_pool
-
+from .combinatorial_solvers import DijkstraGraph, DijkstraGraphClass
+import copy
    
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # class DeBugModel(torch.nn.Module):
@@ -78,35 +79,44 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
 #         # x = global_max_pool(x, data.batch)
 #         return x    
-
 class WarCraftModel(torch.nn.Module):
     def __init__(self, cfg, ):
         super(WarCraftModel, self).__init__()
         self.cfg = cfg
-        self.conv1 = GCNConv(1, 32)
-        self.conv2 = GCNConv(32, 32)
+        self.conv1 = GCNConv(3, 32)
+        #self.conv2 = GCNConv(32, 32)
         self.conv3 = GCNConv(32, 1)
         self.bn1 = torch.nn.BatchNorm1d(32)
         self.bn2 = torch.nn.BatchNorm1d(32)
         self.bn3 = torch.nn.BatchNorm1d(32)
+
+        self.combinatorial_solver = DijkstraGraphClass.apply
         self.grad_approx = GradApproxGraph.apply
-        self.combinatorial_solver = NewDjikstra.apply
 
     def forward(self, data, embedding_output=False,
                 additional_feat=True):
-        x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
+        x, edge_index, edge_attr = data.mean_color, data.edge_index, data.edge_attr
         edge_index = edge_index.to(torch.long).to(device)
         edge_attr = edge_attr.to(torch.float).to(device)
-        x = x.to(torch.float).to(device).unsqueeze(-1)
+        x = x.to(torch.float).to(device)
+        #import pdb; pdb.set_trace()
         x = self.conv1(x, edge_index, edge_attr.float())
         x = self.bn1(x)
         x = torch.nn.ReLU()(x)
-        x = self.conv2(x, edge_index, edge_attr.float())
-        x = self.bn2(x)
-        x = torch.nn.ReLU()(x)
+        #x = self.conv2(x, edge_index, edge_attr.float())
+        #x = self.bn2(x)
+        #x = torch.nn.ReLU()(x)
         x = self.conv3(x, edge_index, edge_attr.float())
-        x = global_max_pool(x, data.batch)
-        return x
+        #x = global_max_pool(x, data.batch) # This might not work (issues with shape?)
+        #gradients have issues here. 
+        #x.shape here is [123, 1]. so maybe we unsqueeze here
+        # NUMBER OF NODES PER GRAPH VARIES
+
+        combinatorial_solver_output = self.combinatorial_solver(x, data)
+        x = self.grad_approx(combinatorial_solver_output, x, data)
+
+        return x 
+
 
 
 def get_graph_model(cfg, warcraft=True):
@@ -128,12 +138,13 @@ def test_model():
     import pdb; pdb.set_trace()
     
 class GradApproxGraph(torch.autograd.Function):
-    def __init__(self, model, input_data, lambda_val=0.1,
+    def __init__(self, model, input_data, lambda_val=20,
                  example_input=None):
         """
         input_data here is a graph with the correct edges. and setup.
         Doing this will let us pass the model through the graph itself.
         """
+        self.input_data = input_data # graph
         self.input = None
         self.output = None
         self.prev_input = example_input
@@ -142,21 +153,28 @@ class GradApproxGraph(torch.autograd.Function):
         self.model = model
         
     @staticmethod
-    def forward(ctx, combinatorial_solver_output, gnn_output):
+    def forward(ctx, combinatorial_solver_output, x, graph_obj):
         """
         Combinatorial solver output is [num_nodes, 1]
         gnn_output is [num_nodes, 1]
 
         """
-        ctx.save_for_backward(combinatorial_solver_output, gnn_output)
+        ctx.save_for_backward(combinatorial_solver_output, x) 
+        ctx.graph = graph_obj # save_for_backward doesn't work for non-tensors
+        
+        return combinatorial_solver_output
+
     @staticmethod
     def backward(ctx, grad_input):
-        lambda_val = 0.1
-        combinatorial_solver_output, gnn_output = ctx.saved_tensors
-        pertubred_gnn.x = gnn_output + torch.multiply(10.0, grad_input)
-        perturebed_output = NewDjikstra(pertubed_gnn)
-        new_grads = (perturebed_output - combinatorial_solver_output) / 10.0
-        return new_grads, new_grads
-        # pertubed_gnn.x = gnn_output
-        # pass 
-        pass 
+        lambda_val = 20
+        combinatorial_solver_output, x = ctx.saved_tensors
+        graph = ctx.graph
+
+        perturbed_gnn_weights = x + torch.multiply(lambda_val, grad_input.to(device))
+        perturbed_gnn_output = DijkstraGraphClass.apply(perturbed_gnn_weights, graph)
+        new_grads = - (1 / lambda_val) * (combinatorial_solver_output - perturbed_gnn_output)
+        
+        new_grads_2 = copy.deepcopy(new_grads).to(device)
+        new_grads_2.requires_grad_(True)
+
+        return new_grads, new_grads_2, None
