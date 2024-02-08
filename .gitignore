@@ -4,3 +4,5 @@ outputs/
 wandb/
 *.cpython-*
 __pycache__/
+venv/
+.venv/
