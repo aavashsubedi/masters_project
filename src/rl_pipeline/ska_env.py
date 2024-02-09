@@ -3,6 +3,7 @@ from gym import spaces
 from gymnasium.spaces import Dict, Box, Discrete, MultiDiscrete
 from pettingzoo import AECEnv
 from pettingzoo.utils import agent_selector, wrappers
+import functools
 
 import networkx as nx
 import numpy as np
@@ -22,7 +23,7 @@ def env(render_mode=None):
     elsewhere in the developer documentation.
     """
     internal_render_mode = render_mode if render_mode != "ansi" else "human"
-    env = raw_env(render_mode=internal_render_mode)
+    env = InterferometerEnv(render_mode=internal_render_mode)
     # This wrapper is only for environments which print results to the terminal
     if render_mode == "ansi":
         env = wrappers.CaptureStdoutWrapper(env)
@@ -36,24 +37,17 @@ def env(render_mode=None):
 
 class InterferometerEnv(AECEnv):
     """
-    The metadata holds environment constants. From gymnasium, we inherit the "render_modes",
-    metadata which specifies which modes can be put into the render() method.
-    At least human mode should be supported.
     The "name" metadata allows the environment to be pretty printed.
     """
 
     metadata = {"render_modes": ["human"], "name": "rps_v2"}
 
-    def __init__(self, num_nodes=197, num_agents=2, render_mode=None):
+    def __init__(self, num_nodes=197, num_agents=2, coordinate_file=r"src\dataset\ska_xy_coordinates.csv", render_mode=None):
         """
         The init method takes in environment arguments and
          should define the following attributes:
         - possible_agents
-        - render_mode
-
-        Note: as of v1.18.1, the action_spaces and observation_spaces attributes are deprecated.
-        Spaces should be defined in the action_space() and observation_space() methods.
-        If these methods are not overridden, spaces will be inferred from self.observation_spaces/action_spaces, raising a warning.
+        - render_modes
 
         These attributes should not be changed after initialization.
         """
@@ -64,9 +58,8 @@ class InterferometerEnv(AECEnv):
                                         'cluster': None}) for i in range(len(self.coordinates))])
         self.graph.add_edges_from(itertools.combinations(self.graph.nodes, 2))
 
+        self.possible_agents = ["player_" + str(r) for r in range(num_agents)]
         self.num_nodes = num_nodes
-        self.num_agents = num_agents
-        self.possible_agents = ["player_" + str(r) for r in range(self.num_agents)]
 
         # Mapping between agent name and ID
         self.agent_name_mapping = dict(
@@ -76,39 +69,27 @@ class InterferometerEnv(AECEnv):
         # optional: we can define the observation and action spaces here as attributes to be used in their corresponding methods
         self._action_spaces = {agent: Discrete(self.graph.number_of_nodes()) for agent in self.possible_agents}
         self._observation_spaces = {
-            agent: MultiDiscrete([n for n in range(self.num_nodes)]) for agent in self.possible_agents
+            agent: MultiDiscrete([self.num_nodes for n in range(self.num_nodes+1)]) for agent in self.possible_agents
         } # This is the allocation of all nodes, which can be allocated to any of n agents
+        self.alloc = np.array([None for _ in range(self.num_nodes)]) # Allocated node list to use in baseline_dists calculation 
         self.render_mode = render_mode
 
-    # Observation space should be defined here.
     # lru_cache allows observation and action spaces to be memoized, reducing clock cycles required to get each agent's space.
     # If your spaces change over time, remove this line (disable caching).
     #@functools.lru_cache(maxsize=None)
     def observation_space(self, agent):
-        # gymnasium spaces are defined and documented here: https://gymnasium.farama.org/api/spaces/
-        return MultiDiscrete([n for n in range(self.num_nodes)])
+        return MultiDiscrete([n for n in range(1, self.num_nodes+1)])
 
     # Action space should be defined here.
     # If your spaces change over time, remove this line (disable caching).
-    @functools.lru_cache(maxsize=None)
+    #@functools.lru_cache(maxsize=None)
     def action_space(self, agent):
         return Discrete(self.graph.number_of_nodes())
 
     def observe(self, agent):
-        """
-        Observe should return the observation of the specified agent. This function
-        should return a sane observation (though not necessarily the most up to date possible)
-        at any time after reset() is called.
-        """
-        # observation of one agent is the previous state of the other
         return np.array(self.observations[agent])
 
     def close(self):
-        """
-        Close should release any graphical displays, subprocesses, network connections
-        or any other environment data which should not be kept around after the
-        user is no longer using the environment.
-        """
         pass
 
     def reset(self, seed=None, options=None):
@@ -131,8 +112,8 @@ class InterferometerEnv(AECEnv):
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}
-        self.state = {agent: NONE for agent in self.agents}
-        self.observations = {agent: NONE for agent in self.agents}
+        self.state = {agent: None for agent in self.agents}
+        self.observations = {agent: None for agent in self.agents}
         self.num_moves = 0
         """
         Our agent_selector utility allows easy cyclic stepping through the agents list.
@@ -163,33 +144,38 @@ class InterferometerEnv(AECEnv):
             return
 
         agent = self.agent_selection
-
         # stores action of current agent
         self.state[self.agent_selection] = action
+        self.alloc[action] = self.agent_name_mapping[agent]
 
         # rewards for all agents are placed in the .rewards dictionary
         # Could introduce baseline weights here!!!! Start with uniform for now
-        hists = [np.histogram(baseline_dists(np.where(self.coordinates[action[i]])), bins=[n*10 for n in range(1,16)], 
-                                density=True)[0] for i in range(self.num_agents)]
-        kl = [kl_div(hists[i], hists[i+1]) for i in range(len(hists))]
-        
-        for n in range(self.num_agents):
-            self.rewards[self.agents[n]] = -sum(kl)
+        if self.num_moves < 10: # Can't histogram one move..
+            self.rewards[self.agent_selection] = 0
+
+        else:
+            hists = [np.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]),#, bins=[n*10 for n in range(1,16)], 
+                                    density=True)[0] for i in range(self.num_agents)] # Histograms may not be same length
+            kl = [kl_div(hists[i], hists[i+1]) for i in range(len(hists)-1)]
+            
+            for n in range(self.num_agents):
+                self.rewards[self.agents[n]] = -np.ma.masked_invalid(kl).sum()
 
         self.num_moves += 1
+        print(self.rewards)
         # The truncations dictionary must be updated for all players.
         self.truncations = {
-            agent: self.num_moves >= NUM_ITERS for agent in self.agents
+            agent: self.num_moves >= 200 for agent in self.agents # 200 iterations
         }
 
         # observe the current state
         for i in self.agents:
             self.observations[i] = self.state[self.agents[1 - self.agent_name_mapping[i]]]
-            self.graph.nodes[action[i]].update({'cluster': i}) # For the sake of plotting
+            self.graph.nodes[action].update({'cluster': i}) # For the sake of plotting
 
         else:
             # necessary so that observe() returns a reasonable observation at all times.
-            self.state[self.agents[1 - self.agent_name_mapping[agent]]] = NONE
+            self.state[self.agents[1 - self.agent_name_mapping[agent]]] = None
             # no rewards are allocated until both players give an action
             self._clear_rewards()
 
@@ -201,32 +187,38 @@ class InterferometerEnv(AECEnv):
         if self.render_mode == "human":
             self.render()
 
-        return observations, rewards, terminations, truncations
+        return self.observations, self.rewards, self.terminations, self.truncations
 
 
     def render(self):
-        """
-        Renders the environment. In human mode, it can print to terminal, open
-        up a graphical window, or open up some other display that a human can see and understand.
-        """
-        if self.render_mode is None:
-            gymnasium.logger.warn(
-                "You are calling render method without specifying any render mode."
-            )
-            return
-
         colours = []
         color = iter(plt.cm.rainbow(np.linspace(0, 1, self.num_agents)))
         for i in range(self.num_agents):
             colours.append(next(color))
 
+        if self.render_mode == "human":
+            return self._render_frame(colours)
+        
+        return
+
+    def _render_frame(self, colours):
+        """
+        Renders the environment. In human mode, it can print to terminal, open
+        up a graphical window, or open up some other display that a human can see and understand.
+        """
+        if self.render_mode is None:
+            gym.logger.warn(
+                "You are calling render method without specifying any render mode."
+            )
+            return
+
         for i in range(self.num_agents):
             for n in range(self.num_nodes):
-                if self.graph.nodes[n]['cluster'] == i:
+                if self.alloc[n] == i:
                     plt.plot(self.coordinates[n, 0], self.coordinates[n, 1], '.', color=colours[i], 
                                 label='Agent {}'.format(i+1))
-            
-        plt.legend()
+
+        #plt.legend()
         plt.savefig(r'src\rl_pipeline\SKA_allocation.png', bbox_inches='tight')
 
         return 
