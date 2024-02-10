@@ -1,17 +1,13 @@
-import gym
-from gym import spaces
-from gymnasium.spaces import Dict, Box, Discrete, MultiDiscrete
+from gymnasium.spaces import Discrete, MultiDiscrete
 from pettingzoo import AECEnv
 from pettingzoo.utils import agent_selector, wrappers
-import functools
+import wandb
 
 import networkx as nx
 import numpy as np
 from scipy.special import kl_div
 import itertools
-from math import dist
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 from rl_utils import baseline_dists
 
 ## Heavily inspired by https://pettingzoo.farama.org/content/environment_creation/ tutorial
@@ -201,8 +197,25 @@ class InterferometerEnv(AECEnv):
                 if self.alloc[n] == i:
                     plt.plot(self.coordinates[n, 0], self.coordinates[n, 1], '.', color=colours[i], 
                                 label='Agent {}'.format(i+1))
+                    
+                    data = [self.coordinates[n, 0], self.coordinates[n, 1]]
+                    table = wandb.Table(data=data, columns=["x", "y"])
+                    wandb.log({"Allocation": wandb.plot.scatter(table, "x", "y")})
+
+                    # wandb.log(
+                    #     {
+                    #         "Allocation": wandb.plot.line_series(
+                    #             xs=[0, 1, 2, 3, 4],
+                    #             ys=[[10, 20, 30, 40, 50], [0.5, 11, 72, 3, 41]],
+                    #             keys=["metric Y", "metric Z"],
+                    #             title="Two Random Metrics",
+                    #             xname="x units",
+                    #         )
+                    #     }
+                    # )
 
         #plt.legend()
+
         plt.savefig(r'src\rl_pipeline\SKA_allocation.png', bbox_inches='tight')
         plt.close()
 

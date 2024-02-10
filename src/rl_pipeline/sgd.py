@@ -17,7 +17,7 @@ def train_SGD_agents(env, agents, num_episodes, agent_ids):
                     states[agent_ids[i]] = next_state
                     total_rewards[i] += list(reward.values())[i]
 
-                    wandb.log({f"Agent_{i+1}_Reward": total_rewards[i]})
+                    wandb.log({f"Agent_{i+1}_Reward": float(total_rewards[i])})
                 
                     if step % 20 == 0:
                         env.render()
