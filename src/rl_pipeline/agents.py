@@ -2,11 +2,30 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from supersuit import color_reduction_v0, frame_stack_v1, resize_v1
+#from supersuit import color_reduction_v0, frame_stack_v1, resize_v1
 from torch.distributions.categorical import Categorical
+from torch.nn import functional as F
+
+class SGD_Agent:
+    def __init__(self, num_actions, agent_id, learning_rate=0.1):
+        self.agent_id = agent_id
+        self.num_actions = num_actions
+        self.learning_rate = learning_rate
+        self.weights = np.zeros(num_actions)
+    
+    def select_action(self, state):
+        # Select action using epsilon-greedy policy
+        if np.random.rand() < 0.1: # Randomness level 10 percent
+            return np.random.choice(self.num_actions)
+        else:
+            return np.argmax(self.weights)
+
+    def update_weights(self, state, action, reward):
+        # Update weights using stochastic gradient descent
+        self.weights[action] += self.learning_rate * reward[self.agent_id]
 
 
-class Agent(nn.Module):
+class PPOAgent(nn.Module):
     def __init__(self, num_actions):
         super().__init__()
 
@@ -42,34 +61,4 @@ class Agent(nn.Module):
         if action is None:
             action = probs.sample()
         return action, probs.log_prob(action), probs.entropy(), self.critic(hidden)
-
-
-def batchify_obs(obs, device):
-    """Converts PZ style observations to batch of torch arrays."""
-    # convert to list of np arrays
-    obs = np.stack([obs[a] for a in obs], axis=0)
-    # transpose to be (batch, channel, height, width)
-    obs = obs.transpose(0, -1, 1, 2)
-    # convert to torch
-    obs = torch.tensor(obs).to(device)
-
-    return obs
-
-
-def batchify(x, device):
-    """Converts PZ style returns to batch of torch arrays."""
-    # convert to list of np arrays
-    x = np.stack([x[a] for a in x], axis=0)
-    # convert to torch
-    x = torch.tensor(x).to(device)
-
-    return x
-
-
-def unbatchify(x, env):
-    """Converts np array to PZ style arguments."""
-    x = x.cpu().numpy()
-    x = {a: x[i] for i, a in enumerate(env.possible_agents)}
-
-    return x
     

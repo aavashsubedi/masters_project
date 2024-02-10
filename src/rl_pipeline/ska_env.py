@@ -42,7 +42,7 @@ class InterferometerEnv(AECEnv):
 
     metadata = {"render_modes": ["human"], "name": "rps_v2"}
 
-    def __init__(self, num_nodes=197, num_agents=2, coordinate_file=r"src\dataset\ska_xy_coordinates.csv", render_mode=None):
+    def __init__(self, num_steps=100, num_nodes=197, num_agents=2, coordinate_file=r"src\dataset\ska_xy_coordinates.csv", render_mode=None):
         """
         The init method takes in environment arguments and
          should define the following attributes:
@@ -51,6 +51,9 @@ class InterferometerEnv(AECEnv):
 
         These attributes should not be changed after initialization.
         """
+        self.num_nodes = num_nodes
+        self.num_steps = num_steps
+
         # Creating graph. Keeping this for the sake of plotting
         self.coordinates = np.genfromtxt(coordinate_file, delimiter=',')
         self.graph = nx.Graph()
@@ -59,7 +62,6 @@ class InterferometerEnv(AECEnv):
         self.graph.add_edges_from(itertools.combinations(self.graph.nodes, 2))
 
         self.possible_agents = ["player_" + str(r) for r in range(num_agents)]
-        self.num_nodes = num_nodes
 
         # Mapping between agent name and ID
         self.agent_name_mapping = dict(
@@ -73,6 +75,8 @@ class InterferometerEnv(AECEnv):
         } # This is the allocation of all nodes, which can be allocated to any of n agents
         self.alloc = np.array([None for _ in range(self.num_nodes)]) # Allocated node list to use in baseline_dists calculation 
         self.render_mode = render_mode
+        self.hists = None # Save histograms of baseline distances for rendering
+        self.bin_centers = (np.array([n/2 for n in range(8)][:-1]) + np.array([n/2 for n in range(8)][1:])) / 2
 
     # lru_cache allows observation and action spaces to be memoized, reducing clock cycles required to get each agent's space.
     # If your spaces change over time, remove this line (disable caching).
@@ -94,32 +98,23 @@ class InterferometerEnv(AECEnv):
 
     def reset(self, seed=None, options=None):
         """
-        Reset needs to initialize the following attributes
-        - agents
-        - rewards
-        - _cumulative_rewards
-        - terminations
-        - truncations
-        - infos
-        - agent_selection
-        And must set up the environment so that render(), step(), and observe()
-        can be called without issues.
-        Here it sets up the state dictionary which is used by step() and the observations dictionary which is used by step() and observe()
+        Reset needs to initialize the attributes
         """
         self.agents = self.possible_agents[:]
-        self.rewards = {agent: 0 for agent in self.agents}
+        self.rewards = {agent: -10 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}
         self.state = {agent: None for agent in self.agents}
         self.observations = {agent: None for agent in self.agents}
-        self.num_moves = 0
         """
         Our agent_selector utility allows easy cyclic stepping through the agents list.
         """
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.next()
+
+        return self.observations, self.infos
 
     def step(self, action):
         """
@@ -140,7 +135,7 @@ class InterferometerEnv(AECEnv):
             # handles stepping an agent which is already dead
             # accepts a None action for the one agent, and moves the agent_selection to
             # the next dead agent,  or if there are no more dead agents, to the next live agent
-            self._was_dead_step(action)
+            #self._was_dead_step(action)
             return
 
         agent = self.agent_selection
@@ -150,22 +145,22 @@ class InterferometerEnv(AECEnv):
 
         # rewards for all agents are placed in the .rewards dictionary
         # Could introduce baseline weights here!!!! Start with uniform for now
-        if self.num_moves < 10: # Can't histogram one move..
-            self.rewards[self.agent_selection] = 0
+        if self.num_steps < 10: # Can't histogram one move..
+            self.rewards[self.agent_selection] = -10
 
         else:
-            hists = [np.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]),#, bins=[n*10 for n in range(1,16)], 
-                                    density=True)[0] for i in range(self.num_agents)] # Histograms may not be same length
-            kl = [kl_div(hists[i], hists[i+1]) for i in range(len(hists)-1)]
+            self.hists = [np.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]), bins=[n/2 for n in range(8)], 
+                                    density=True)[0] for i in range(self.num_agents)]
+            kl = [kl_div(self.hists[i], self.hists[i+1]) for i in range(len(self.hists)-1)]
             
             for n in range(self.num_agents):
-                self.rewards[self.agents[n]] = -np.ma.masked_invalid(kl).sum()
-
-        self.num_moves += 1
-        print(self.rewards)
+                # Penalize for number of nodes allocated and similarity of histograms
+                self.rewards[self.agents[n]] = -(np.ma.masked_invalid(kl).sum() +
+                                                  len(np.where(self.alloc == None)[0])/self.num_nodes) 
+                
         # The truncations dictionary must be updated for all players.
         self.truncations = {
-            agent: self.num_moves >= 200 for agent in self.agents # 200 iterations
+            agent: self.num_steps >= 1000 for agent in self.agents # NOT USED
         }
 
         # observe the current state
@@ -173,11 +168,11 @@ class InterferometerEnv(AECEnv):
             self.observations[i] = self.state[self.agents[1 - self.agent_name_mapping[i]]]
             self.graph.nodes[action].update({'cluster': i}) # For the sake of plotting
 
-        else:
+        #else:
             # necessary so that observe() returns a reasonable observation at all times.
-            self.state[self.agents[1 - self.agent_name_mapping[agent]]] = None
+            #self.state[self.agents[1 - self.agent_name_mapping[agent]]] = None
             # no rewards are allocated until both players give an action
-            self._clear_rewards()
+            #self._clear_rewards()
 
         # selects the next agent.
         self.agent_selection = self._agent_selector.next()
@@ -196,22 +191,9 @@ class InterferometerEnv(AECEnv):
         for i in range(self.num_agents):
             colours.append(next(color))
 
-        if self.render_mode == "human":
-            return self._render_frame(colours)
-        
-        return
-
-    def _render_frame(self, colours):
-        """
-        Renders the environment. In human mode, it can print to terminal, open
-        up a graphical window, or open up some other display that a human can see and understand.
-        """
-        if self.render_mode is None:
-            gym.logger.warn(
-                "You are calling render method without specifying any render mode."
-            )
-            return
-
+        #if self.render_mode == "human":
+         #   return self._render_frame(colours)
+            
         for i in range(self.num_agents):
             for n in range(self.num_nodes):
                 if self.alloc[n] == i:
@@ -221,90 +203,24 @@ class InterferometerEnv(AECEnv):
         #plt.legend()
         plt.savefig(r'src\rl_pipeline\SKA_allocation.png', bbox_inches='tight')
 
-        return 
+        if self.hists != None:
+            fig, axes = plt.subplots(1, self.num_agents, figsize=(15, 5))
+            for i in range(self.num_agents):
+                axes[i].bar(self.bin_centers, self.hists[i], align='edge')
 
-"""
-class SKAEnv(gym.Env):
-    def __init__(self, num_agents=2, coordinate_file=r"src\dataset\ska_xy_coordinates.csv"):
-        super(SKAEnv, self).__init__()
-
-        # Graph representation: Fully connected graph with all antenna coordinates
-        self.coordinates = np.genfromtxt(coordinate_file, delimiter=',')
-        self.graph = nx.Graph()
-        self.graph.add_nodes_from([(i, {'coordinates': self.coordinates[i], 
-                                        'cluster': None}) for i in range(len(self.coordinates))])
-        self.graph.add_edges_from(itertools.combinations(self.graph.nodes, 2))
+            fig.savefig(r'src\rl_pipeline\SKA_histograms.png', bbox_inches='tight')
         
-        self.current_step = 0
-        self.num_agents = num_agents
-        self.num_nodes = self.graph.number_of_nodes()
-        # Initialize agent collections
-        self.agent_collections = {i: set() for i in range(self.num_agents)}
-        #num_baselines = (self.graph.number_of_nodes() * (self.graph.number_of_nodes() - 1)) / 2
+        return
 
-        # Define action and observation spaces
-        self.action_space = gym.spaces.Discrete(self.num_nodes)
-        #spaces.Discrete(self.graph.number_of_nodes() -
-                                #(self.num_agents * self.current_step)) # Number of unallocated nodes
-        self.observation_space = gym.spaces.Dict({'subarray_configuration': gym.Space([self.graph.nodes[i]['cluster'] for i in range(self.num_nodes)]),
-                            'baselines': gym.Space(np.array([[dist(self.graph.nodes[i]['coordinates'], self.graph.nodes[j]['coordinates']) for i in range(self.num_nodes)] for j in range(self.num_nodes)]))
-        })
+    # def _render_frame(self, colours):
+    #     """
+    #     Renders the environment. In human mode, it can print to terminal, open
+    #     up a graphical window, or open up some other display that a human can see and understand.
+    #     """
+    #     if self.render_mode is None:
+    #         gym.logger.warn(
+    #             "You are calling render method without specifying any render mode."
+    #         )
+    #         return
 
-
-    def step(self, actions):
-        # Take action and update the environment. Check termination condition
-        self.current_step += 1
-        if self.current_step <=200:
-            done = (self.current_step == self.num_nodes//self.num_agents)
-        else:
-            done = True
-
-        obs_n = [self._get_obs(i) for i in range(self.num_agents)] 
-        rew_n = [self._get_reward(i) for i in range(self.num_agents)]
-
-        for n in range(self.num_agents):
-            self.graph.nodes[actions[n]].update({'cluster': n})
-
-        return obs_n, rew_n, done, {}
-
-
-    def reset(self):
-        # Reset the environment
-        self.current_step = 0
-        self.agent_collections = {i: set() for i in range(self.num_agents)}
-        observations = {i: self._get_obs(i) for i in range(self.num_agents)}
-        [self.graph.nodes[i].update({'cluster': None}) for i in range(self.num_nodes)] # Unallocate all nodes
-
-        return observations
-
-    def _get_obs(self, agent_id): # TEST, just pick random nodes without regard for baseline
-        # Get observation of a particular agent
-        last_selected_node = max(self.agent_collections[agent_id]) if self.agent_collections[agent_id] else None
-        return {'last_selected_node': last_selected_node,} #{'subarray_configuration': [self.graph.nodes[i]['cluster'] for i in range(self.num_nodes)],}
-                                        #'baselines': np.array([[dist(self.graph[i]['coordinates'], 
-                                         #self.graph[j]['coordinates']) for i in range(self.num_nodes)] 
-                                         #for j in range(self.num_nodes)])}
-    
-    #{'last_selected_node': self.graph.nodes[last_selected_node] if last_selected_node is not None else None}
-
-    
-    def _get_reward(self, agent_id): # TEST REWARD
-        return -len(np.where([self.graph.nodes[i]['cluster'] for i in range(self.num_nodes)]==0))  # TEST Negative reward for each remaining unallocated node
-
-    def render(self):
-        # Implement visualization if needed
-        colours = []
-        color = iter(plt.cm.rainbow(np.linspace(0, 1, self.num_agents)))
-        for i in range(self.num_agents):
-            colours.append(next(color))
-
-        for i in range(self.num_agents):
-            for n in range(self.num_nodes):
-                if self.graph.nodes[n]['cluster'] == i:
-                    plt.plot(self.coordinates[n, 0], self.coordinates[n, 1], '.', color=colours[i], 
-                                label='Agent {}'.format(i+1))
-            
-        #plt.legend()
-
-        plt.savefig(r'src\rl_pipeline\SKA_allocation.png', bbox_inches='tight')
-        """
+    #     return 
