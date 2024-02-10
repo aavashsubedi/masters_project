@@ -10,8 +10,7 @@ import itertools
 import matplotlib.pyplot as plt
 from rl_utils import baseline_dists
 
-## Heavily inspired by https://pettingzoo.farama.org/content/environment_creation/ tutorial
-
+## Heavily inspired by https://pettingzoo.farama.org/content/environment_creation/ tutorial 
 def env(render_mode=None):
     """
     The env function often wraps the environment in wrappers by default.
@@ -193,37 +192,24 @@ class InterferometerEnv(AECEnv):
          #   return self._render_frame(colours)
             
         for i in range(self.num_agents):
+            data = []
+            figure, axes = plt.subplots()
             for n in range(self.num_nodes):
                 if self.alloc[n] == i:
-                    plt.plot(self.coordinates[n, 0], self.coordinates[n, 1], '.', color=colours[i], 
+                    axes.plot(self.coordinates[n, 0], self.coordinates[n, 1], '.', color=colours[i], 
                                 label='Agent {}'.format(i+1))
-                    
-                    data = [self.coordinates[n, 0], self.coordinates[n, 1]]
-                    table = wandb.Table(data=data, columns=["x", "y"])
-                    wandb.log({"Allocation": wandb.plot.scatter(table, "x", "y")})
-
-                    # wandb.log(
-                    #     {
-                    #         "Allocation": wandb.plot.line_series(
-                    #             xs=[0, 1, 2, 3, 4],
-                    #             ys=[[10, 20, 30, 40, 50], [0.5, 11, 72, 3, 41]],
-                    #             keys=["metric Y", "metric Z"],
-                    #             title="Two Random Metrics",
-                    #             xname="x units",
-                    #         )
-                    #     }
-                    # )
+                wandb.log({"Allocation": figure})    
 
         #plt.legend()
-
         plt.savefig(r'src\rl_pipeline\SKA_allocation.png', bbox_inches='tight')
         plt.close()
 
         if self.hists != None:
             fig, axes = plt.subplots(1, self.num_agents, figsize=(15, 5))
             for i in range(self.num_agents):
-                axes[i].bar(self.bin_centers, self.hists[i], align='edge')
+                axes[i].hist(self.hists[i], self.bin_centers)
 
+            wandb.log({"Histograms": fig})
             fig.savefig(r'src\rl_pipeline\SKA_histograms.png', bbox_inches='tight')
             plt.close()
         

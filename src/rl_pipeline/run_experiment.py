@@ -2,7 +2,7 @@ from ska_env import InterferometerEnv
 from pettingzoo.test import api_test, seed_test, render_test
 from agents import PPOAgent, SGD_Agent
 from sgd import train_SGD_agents
-2
+
 import wandb
 
 if __name__ == "__main__":
