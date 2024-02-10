@@ -74,9 +74,11 @@ class InterferometerEnv(AECEnv):
             agent: MultiDiscrete([self.num_nodes for n in range(self.num_nodes+1)]) for agent in self.possible_agents
         } # This is the allocation of all nodes, which can be allocated to any of n agents
         self.alloc = np.array([None for _ in range(self.num_nodes)]) # Allocated node list to use in baseline_dists calculation 
+
         self.render_mode = render_mode
         self.hists = None # Save histograms of baseline distances for rendering
         self.bin_centers = (np.array([n/2 for n in range(8)][:-1]) + np.array([n/2 for n in range(8)][1:])) / 2
+        #self.canvas = np.ones(self.observation_shape) * 1 
 
     # lru_cache allows observation and action spaces to be memoized, reducing clock cycles required to get each agent's space.
     # If your spaces change over time, remove this line (disable caching).
@@ -202,6 +204,7 @@ class InterferometerEnv(AECEnv):
 
         #plt.legend()
         plt.savefig(r'src\rl_pipeline\SKA_allocation.png', bbox_inches='tight')
+        plt.close()
 
         if self.hists != None:
             fig, axes = plt.subplots(1, self.num_agents, figsize=(15, 5))
@@ -209,6 +212,7 @@ class InterferometerEnv(AECEnv):
                 axes[i].bar(self.bin_centers, self.hists[i], align='edge')
 
             fig.savefig(r'src\rl_pipeline\SKA_histograms.png', bbox_inches='tight')
+            plt.close()
         
         return
 
