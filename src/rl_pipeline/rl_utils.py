@@ -43,3 +43,6 @@ def unbatchify(x, env):
     x = {a: x[i] for i, a in enumerate(env.possible_agents)}
 
     return x
+
+def MSE(experimental, simulated):
+    return np.square(np.subtract(experimental, simulated).mean())

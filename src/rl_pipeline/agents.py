@@ -15,9 +15,10 @@ class SGD_Agent:
     
     def select_action(self, state):
         # Select action using epsilon-greedy policy
-        if np.random.rand() < 0.1: # Randomness level 10 percent
+        if np.random.rand() < 0.3: # Randomness level 10 percent
             return np.random.choice(self.num_actions)
         else:
+            print(self.weights)
             return np.argmax(self.weights)
 
     def update_weights(self, state, action, reward):
