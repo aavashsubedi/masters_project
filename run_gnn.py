@@ -4,6 +4,8 @@ from src.model.model import get_model
 from src.model.graph_model import get_graph_model
 from src.training.trainer_graph import trainer_graph as trainer_graph
 from src.dataset.warcraft_gnn_dataloader import ITRLoader
+from src.training.trained_graph_debug import trainer_graph_debug
+
 from torch_geometric.data import DataLoader
 def run_gnn(cfg):
 
@@ -17,4 +19,7 @@ def run_gnn(cfg):
         test_dataloader = DataLoader(test_dataset, batch_size=cfg.batch_size, shuffle=True)
         print("Dataset")
         model = get_graph_model(cfg)
-        trainer_graph(cfg, train_dataloader, val_dataloader, test_dataloader, model)
+        if cfg.gnn_debug_mode:
+                trainer_graph_debug(cfg, train_dataloader, val_dataloader, test_dataloader, model)
+        else:
+                trainer_graph(cfg, train_dataloader, val_dataloader, test_dataloader, model)

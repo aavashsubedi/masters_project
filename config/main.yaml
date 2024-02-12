@@ -24,20 +24,25 @@ cnn_hidden: "64"
 cnn_kernel_size: "3"
 
 #for optimiser
-lr: 0.01
+lr: 0.03
 weight_decay: 0
 gradient_clipping: 0
 dropout: 0  
 batchnorm_eps: 0.1
-scheduler: False #if True we use OnecycleLR (behaves like cosine with annealing)
+scheduler: True #if True we use OnecycleLR (behaves like cosine with annealing)
 
 #early_stopping
 patience: 7
-num_epochs: 50
+num_epochs: 100
 
 #dataset
 warcraft_tile: "12"
 normalise: true
-batch_size: 9
+batch_size: 128
 map_weights_mean: 3.9269
 man_weights_std: 3.3777
+
+gnn_debug_mode: False #if true we do the gnn debug of RMSE loss with #
+
+run_ska: False
+ska_data_path: "/share/nas2/asubedi/masters_project/data/graph_dataset.pt"

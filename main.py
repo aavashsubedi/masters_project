@@ -3,6 +3,7 @@ import hydra
 import wandb
 from run import run
 from run_gnn import run_gnn
+from run_ska import run_ska
 from src.utils.setup_wandb import setup_wandb
 from omegaconf import OmegaConf
 import torch.multiprocessing as mp
@@ -13,7 +14,9 @@ warnings.filterwarnings("ignore")
              config_name="main.yaml")
 def main(cfg):
     setup_wandb(cfg)
-    if cfg.run_type != "gnn":
+    if cfg.run_ska: 
+        run_ska(cfg)
+    elif cfg.run_type != "gnn":
         run(cfg)
     else:
         run_gnn(cfg)

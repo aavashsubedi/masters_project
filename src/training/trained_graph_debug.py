@@ -11,11 +11,12 @@ from torchviz import make_dot
 from copy import deepcopy
 import networkx as nx
 import torch_geometric as pyg
-from src.training.evaluate_graph import check_cost_graph, evaluate_gnn
+from src.training.evaluate_graph import check_cost_graph
 #set seed
 
+from .evaulate import check_cost, evaluate
 
-def trainer_graph(cfg, train_dataloader, val_dataloader,
+def trainer_graph_debug(cfg, train_dataloader, val_dataloader,
             test_dataloader, model):
     
     torch.manual_seed(cfg.seed)
@@ -26,25 +27,29 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
     optimizer = get_optimizer(cfg, model)
     #given our output is a vector of size [num_nodes, 1], and the target is the same, 
     #we can just use the HammingLOss
-    criterion = HammingLossGraph()
+    #use the MSE loss criterion
+    criterion = torch.nn.MSELoss()
     model.train().to(device)
-    #gradient_approximater = GradientApproximator(model,
-    #                input_shape=(cfg.batch_size, 12, 12))
-   # dijs = DijskstraClass()
     
     if cfg.scheduler:
         scheduler = get_scheulder_one_cycle(cfg, optimizer,
-         len(train_dataloader), cfg.num_epochs)
+         len(train_dataloader), cfg.epochs)
     else:
         scheduler = get_flat_scheduler(cfg, optimizer)
     early_stop_counter = 0
     curr_epoch = 0
-    pbar_epochs = tqdm(range(cfg.num_epochs), desc="training",
+    pbar_epochs = tqdm(range(cfg.num_epochs), desc="Pretraining",
                         leave=False)
-                       
+                        
+    #create a MSE loss criterion 
+    criterion_2 = torch.nn.MSELoss()
+    
+    data_copy = None
+    label_copy = None
+    weights_copy = None
     epoch = 0
     total_accuracy = []
-    evaluate_gnn(model, val_dataloader, criterion, mode="val")
+    #evaluate(model, val_dataloader, criterion, mode="val")
 
     for epoch in pbar_epochs:
 
@@ -54,18 +59,14 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
         i = 0
         for data in pbar_data:
             
-            optimizer.zero_grad()
-            data = data.to(device)
-            label = data.centroid_in_path
-            label.to(device)
-            #test_data = data[0]
-            #test_label = data[0].centroid_in_path
-            #nx_test = pyg.utils.to_networkx(test_data)
-            #nx_test.x = test_data.x
-            #nx_test.edge_index = test_data.edge_index
-            #nx_test.edge_attr = test_data.edge_attr
-            #nx_path = nx.shortest_path(nx_test, source=0, target=test_data.target.item())
 
+            data = data.to(device)
+            label = data.centroid_values
+            label.to(device)
+            #standardise the label to have mean 0 and std 1
+            label = (label - label.mean()) / label.std()
+            
+        
             output = model(data)
             output = output.to(device)
             """
@@ -74,7 +75,6 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
             
             
             """
-          #  import pdb; pdb.set_trace()
             loss = criterion(output.squeeze(-1), label)
             loss.backward()
 
@@ -83,13 +83,9 @@ def trainer_graph(cfg, train_dataloader, val_dataloader,
             pbar_data.set_postfix(loss=loss.item())
             wandb.log({"loss": loss.item()})
 
-            batchwise_accuracy = check_cost_graph(data, output)
-            wandb.log({"batchwise_accuracy": batchwise_accuracy})
-            total_accuracy.append(batchwise_accuracy)
-            plot_grad_flow(model.named_parameters())
-
+            # batchwise_accuracy = check_cost_graph(data, output)
+            # wandb.log({"batchwise_accuracy": batchwise_accuracy})
     
-        wandb.log({"epoch_accuracy": sum(total_accuracy) / len(total_accuracy)})
             #data_copy = deepcopy(data)
-        evaluate_gnn(model, val_dataloader, criterion, mode="val")
-    evaluate_gnn(model, test_dataloader, criterion, mode="test")
+        #evaluate(model, val_dataloader, criterion, mode="val")
+    #evaluate(model, test_dataloader, criterion, mode="test")
