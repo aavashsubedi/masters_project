@@ -11,11 +11,11 @@ class SGD_Agent:
         self.agent_id = agent_id
         self.num_actions = num_actions
         self.learning_rate = learning_rate
-        self.weights = np.zeros(num_actions)
+        self.weights = np.ones(num_actions) # Optimistic initialisation
     
     def select_action(self, state):
         # Select action using epsilon-greedy policy
-        if np.random.rand() < 0.3: # Randomness level 10 percent
+        if np.random.rand() < 0.2: # Exploration percentage
             return np.random.choice(self.num_actions)
         else:
             print(self.weights)
