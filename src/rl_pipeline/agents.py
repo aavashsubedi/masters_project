@@ -6,20 +6,22 @@ import torch.optim as optim
 from torch.distributions.categorical import Categorical
 from torch.nn import functional as F
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class SGD_Agent:
     def __init__(self, num_actions, agent_id, learning_rate=0.1):
         self.agent_id = agent_id
         self.num_actions = num_actions
         self.learning_rate = learning_rate
-        self.weights = np.ones(num_actions) # Optimistic initialisation
+        self.weights = torch.ones(num_actions, device=device) # Optimistic initialisation
     
     def select_action(self, state):
         # Select action using epsilon-greedy policy
         if np.random.rand() < 0.2: # Exploration percentage
-            return np.random.choice(self.num_actions)
+            return torch.random.choice(self.num_actions)
         else:
             print(self.weights)
-            return np.argmax(self.weights)
+            return torch.argmax(self.weights)
 
     def update_weights(self, state, action, reward):
         # Update weights using stochastic gradient descent

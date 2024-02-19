@@ -1,19 +1,13 @@
-import math
 import numpy as np
+import math
 import torch
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 def baseline_dists(coordinates):
-    dists = []
+    antennas = coordinates.size()[0]
+    return torch.tensor([math.dist(x,y) for x in coordinates for y in coordinates], device=device)
 
-    for i in range(len(coordinates) - 1):
-        for j in range(len(coordinates) - 1):
-            x_i, y_i = coordinates[i][-2], coordinates[i][-1]
-            x_j, y_j = coordinates[j][-2], coordinates[j][-1]
-            euclidean_distance = (x_i - x_j)**2 + (y_i - y_j)**2
-            euclidean_distance = euclidean_distance**0.5
-            dists.append(euclidean_distance)
-
-    return dists
 
 def batchify_obs(obs, device):
     """Converts PZ style observations to batch of torch arrays."""
@@ -43,6 +37,7 @@ def unbatchify(x, env):
     x = {a: x[i] for i, a in enumerate(env.possible_agents)}
 
     return x
+
 
 def MSE(experimental, simulated):
     return np.square(np.subtract(experimental, simulated).mean())

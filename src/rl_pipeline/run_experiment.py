@@ -1,6 +1,6 @@
 from ska_env import InterferometerEnv
 import wandb
-
+import torch
 from agents import PPOAgent, SGD_Agent
 from sgd import train_SGD_agents
 

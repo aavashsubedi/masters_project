@@ -1,8 +1,7 @@
-#resolution
-#sensitivity
-#Briggs weigthing (+Uniform, +Natural)
-#Tapered
 import numpy as np
+import torch
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # SKIPPING CONSTANTS
 def resolution(wavelength, baselines):
@@ -24,7 +23,7 @@ def sensitivity(num_antennas, system_temp=1, integration_time=3600, bandwidth=20
 
 def briggs_weighting(baselines, source_vis=1):
     # Recreating eqn 3.13 from Dan Briggs thesis. Set delta S_uw to 1
-    return [1/((source_vis**2) * sum(baselines) + 2) for _ in baselines] # 8.2 e-06
+    return torch.tensor([1/((source_vis**2) * sum(baselines) + 2) for _ in baselines], device=device) # 8.2 e-06
 
 def tapered_weighting(baselines, taper_threshold=0.8):
     # Calculate the weights based on the tapered regime (long baselines weighted less)
@@ -34,4 +33,4 @@ def tapered_weighting(baselines, taper_threshold=0.8):
     for i in taper_indices[0]:
         weights[i] = taper_threshold * max(baselines) / baselines[i]
     
-    return weights # Works
+    return torch.tensor(weights, device=device) # Works

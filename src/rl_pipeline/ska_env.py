@@ -2,13 +2,15 @@ from gymnasium.spaces import Discrete, MultiDiscrete
 from pettingzoo import AECEnv
 from pettingzoo.utils import agent_selector, wrappers
 import wandb
-
+import torch
 import numpy as np
 from scipy.special import kl_div
 from math import dist
 import matplotlib.pyplot as plt
 from rl_utils import baseline_dists, MSE
 from astro_utils import*
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 ## Heavily inspired by https://pettingzoo.farama.org/content/environment_creation/ tutorial
 
@@ -55,12 +57,11 @@ class InterferometerEnv(AECEnv):
         self.target_sensitivity = target_sensitivity
         self.target_resolution = target_resolution
         self.weighting_regime = None
-        self.coordinates = np.genfromtxt(coordinate_file, delimiter=',')
+        self.coordinates = torch.tensor(np.genfromtxt(coordinate_file, delimiter=',')).to(device)
 
         self.possible_agents = ["player_" + str(r) for r in range(self.agent_num)]
         # Mapping between agent name and ID
-        self.agent_name_mapping = dict(zip(self.possible_agents, 
-                                        list(range(len(self.possible_agents)))))
+        self.agent_name_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
 
         # optional: we can define the observation and action spaces here as attributes to be used in their corresponding methods
         self._action_spaces = {agent: Discrete(self.num_nodes) for agent in self.possible_agents}
@@ -71,7 +72,8 @@ class InterferometerEnv(AECEnv):
 
         self.render_mode = render_mode
         self.hists = None # Save histograms of baseline distances for rendering
-        self.bin_centers = (np.array([n/2 for n in range(8)][:-1]) + np.array([n/2 for n in range(8)][1:])) / 2
+        self.bin_centers = (torch.tensor([n/2 for n in range(8)][:-1], device=device) + \
+                             torch.tensor([n/2 for n in range(8)][1:], device=device)) / 2
 
     def observation_space(self, agent):
         return MultiDiscrete([self.agent_num for _ in range(1, self.num_nodes)])
@@ -82,17 +84,17 @@ class InterferometerEnv(AECEnv):
     def observe(self, agent):
         return np.array(self.observations[agent])
     
-    def calculate_rewards(self, avg_hist):
+    def calculate_rewards(self):
         for n in range(self.num_agents): # Update rewards
             array_sensitivity = sensitivity(len(np.where(self.alloc == n)[0]))
             array_resolution = resolution(1, baseline_dists(self.coordinates[np.where(self.alloc == n)]))
-            similarity = MSE(avg_hist, self.hists[n]) if not \
-                        np.isnan(MSE(avg_hist, self.hists[n])) else -10 # Similarity to an average
+            #similarity = MSE(avg_hist, self.hists[n]) if not \
+            #           np.isnan(MSE(avg_hist, self.hists[n])) else -10 # Similarity to an average
             self.rewards[self.agents[n]] = -MSE(array_sensitivity, self.target_sensitivity) - \
                                             MSE(array_resolution, self.target_resolution)
             
             #similarity # - #np.ma.masked_invalid(kl).sum()
-        return None
+        return array_sensitivity, array_resolution
 
     def close(self):
         pass
@@ -133,24 +135,27 @@ class InterferometerEnv(AECEnv):
 
         avg_reward = -10000 # Large negative will be overwritten
         for weighting_fn in (briggs_weighting, tapered_weighting):
-            self.hists = [np.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]),
+            self.hists = [torch.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]),
                                         bins=[n/2 for n in range(8)],
                                         weights=weighting_fn(baseline_dists(self.coordinates[np.where(self.alloc == i)])),
-                                    density=True)[0] for i in range(self.num_agents)]
+                                    density=True)[0].to(device) for i in range(self.num_agents)]
             #kl = [kl_div(self.hists[i], self.hists[i+1]) for i in range(len(self.hists)-1)]
-            avg_hist = np.average(self.hists, axis=0) # Used to calculate MSE
+            #avg_hist = torch.average(self.hists, axis=0) # Used to calculate MSE
 
-            self.calculate_rewards(avg_hist) # Updates self.rewards
-            if np.mean(list(self.rewards.values())) > avg_reward:
+            sensitivity, resolution = self.calculate_rewards() # Updates self.rewards
+            print(sensitivity, resolution)
+            #wandb.log({"Sensitivity": sensitivity, "Resolution": resolution})
+
+            if torch.mean(list(self.rewards.values())) > avg_reward:
                 self.weighting_regime = weighting_fn
 
         wandb.log(self.rewards)
         # Update hists with best weighting regime
-        self.hists = [np.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]),
+        self.hists = [torch.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]),
                                     bins=[n/2 for n in range(8)],
                                     weights=self.weighting_regime(baseline_dists(
                                         self.coordinates[np.where(self.alloc == i)])),
-                                density=True)[0] for i in range(self.num_agents)]
+                                density=True)[0].to(device) for i in range(self.num_agents)]
             
         # The truncations dictionary must be updated for all players.
         #self.truncations = {
