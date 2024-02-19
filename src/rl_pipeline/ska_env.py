@@ -136,7 +136,7 @@ class InterferometerEnv(AECEnv):
         avg_reward = -10000 # Large negative will be overwritten
         for weighting_fn in (briggs_weighting, tapered_weighting):
             self.hists = [torch.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]),
-                                        bins=[n/2 for n in range(8)],
+                                        bins=self.bin_centers,
                                         weights=weighting_fn(baseline_dists(self.coordinates[np.where(self.alloc == i)])),
                                     density=True)[0].to(device) for i in range(self.num_agents)]
             #kl = [kl_div(self.hists[i], self.hists[i+1]) for i in range(len(self.hists)-1)]
@@ -152,7 +152,7 @@ class InterferometerEnv(AECEnv):
         wandb.log(self.rewards)
         # Update hists with best weighting regime
         self.hists = [torch.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]),
-                                    bins=[n/2 for n in range(8)],
+                                    bins=self.bin_centers,
                                     weights=self.weighting_regime(baseline_dists(
                                         self.coordinates[np.where(self.alloc == i)])),
                                 density=True)[0].to(device) for i in range(self.num_agents)]
