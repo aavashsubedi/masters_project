@@ -7,5 +7,7 @@ torchvision==0.15.2
 torchviz==0.0.2
 tqdm==4.66.1
 gym
+gymnasium
 pettingzoo
 functools
+wandb
