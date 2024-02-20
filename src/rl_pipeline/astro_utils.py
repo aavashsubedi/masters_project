@@ -13,12 +13,12 @@ def resolution(wavelength, baselines):
 def sensitivity(num_antennas, system_temp=1, integration_time=3600, bandwidth=200e6, individual_radius=7.5):
     # The SKA has 197 antennas, the new ones have radius 7.5m, the MeerKat ones 6.75m
     # Bandwidth 50-350MHz
-    #numerator = 2*1.380649e-23 * system_temp
-    #denominator = num_antennas * np.pi * individual_radius**2 * \
+    #numerator = 2*1.380649e-23 * system_temp * num_antennas 
+    #denominator = np.pi * individual_radius**2 * \
      #               np.sqrt(integration_time * bandwidth)
     
     #return (numerator / denominator)
-    return 1/ num_antennas
+    return num_antennas
 
 
 def briggs_weighting(baselines, source_vis=1):
