@@ -2,6 +2,7 @@ from ska_env import InterferometerEnv
 import wandb
 import torch
 import hydra
+from rl_utils import setup_wandb
 from agents import PPOAgent, SGD_Agent
 from sgd import train_SGD_agents
 
@@ -27,3 +28,5 @@ def main(cfg):
                         agent_id=env.possible_agents[i]) for i in range(num_agents)]
     train_SGD_agents(env, agents, num_episodes=num_episodes, episode_length=episode_length,
                       agent_ids=env.possible_agents)
+
+main()

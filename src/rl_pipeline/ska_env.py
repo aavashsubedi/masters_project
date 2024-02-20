@@ -42,7 +42,7 @@ class InterferometerEnv(AECEnv):
 
     def __init__(self, target_sensitivity, target_resolution,
                  num_nodes=197, num_agents=2,
-                 coordinate_file=r"src\dataset\ska_xy_coordinates.csv", 
+                 coordinate_file=r"/share/nas2/lislaam/masters_project/src/dataset/ska_xy_coordinates.csv", 
                  render_mode='human'):
         """
         The init method takes in environment arguments and
@@ -57,7 +57,6 @@ class InterferometerEnv(AECEnv):
         self.target_sensitivity = target_sensitivity
         self.target_resolution = target_resolution
         self.weighting_regime = None
-        import pdb; pdb.set_trace()
         self.coordinates = torch.tensor(np.genfromtxt(coordinate_file, delimiter=',')).to(device)
 
         self.possible_agents = ["player_" + str(r) for r in range(self.agent_num)]
@@ -196,7 +195,7 @@ class InterferometerEnv(AECEnv):
         #plt.legend()
         plt.xlim(-40, 60)
         plt.ylim(-70, 70)
-        plt.savefig(r'src\rl_pipeline\SKA_allocation.png', bbox_inches='tight')
+        plt.savefig(r'/share/nas2/lislaam/masters_project/src/rl_pipeline/SKA_allocation.png', bbox_inches='tight')
         wandb.log({"Allocation": wandb.Image(plt)}) 
         plt.close()
 
@@ -205,7 +204,7 @@ class InterferometerEnv(AECEnv):
             for i in range(self.num_agents):
                 axes[i].bar(self.bin_centers, self.hists[i])#, align='centre', width=0.5)
 
-            fig.savefig(r'src\rl_pipeline\SKA_histograms.png', bbox_inches='tight')
+            fig.savefig(r'/share/nas2/lislaam/masters_project/src/rl_pipeline/SKA_histograms.png', bbox_inches='tight')
             wandb.log({"Histograms": wandb.Image(fig)})
             plt.close()
         
