@@ -4,6 +4,7 @@ outputs/
 wandb/
 *.cpython-*
 __pycache__/
+/.venv
 logs/
 src\rl_pipeline\SKA_allocation.png
 src\rl_pipeline\SKA_histograms.png
