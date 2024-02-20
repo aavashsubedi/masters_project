@@ -57,6 +57,7 @@ class InterferometerEnv(AECEnv):
         self.target_sensitivity = target_sensitivity
         self.target_resolution = target_resolution
         self.weighting_regime = None
+        import pdb; pdb.set_trace()
         self.coordinates = torch.tensor(np.genfromtxt(coordinate_file, delimiter=',')).to(device)
 
         self.possible_agents = ["player_" + str(r) for r in range(self.agent_num)]

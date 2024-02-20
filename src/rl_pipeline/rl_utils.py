@@ -1,6 +1,8 @@
 import numpy as np
 import math
 import torch
+import wandb
+import omegaconf
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -41,3 +43,13 @@ def unbatchify(x, env):
 
 def MSE(experimental, simulated):
     return np.square(np.subtract(experimental, simulated).mean())
+
+
+def setup_wandb(cfg):
+    config_dict = omegaconf.OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+    kwargs = {'project': cfg.project_name, 'config': config_dict, 'reinit': True, 'mode': cfg.wandb,
+              'settings': wandb.Settings(_disable_stats=True)}
+    run = wandb.init(**kwargs)
+    #wandb.save('*.txt')
+    #run.save()
+    return cfg, run

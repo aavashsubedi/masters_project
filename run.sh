@@ -15,6 +15,8 @@ while true; do
     source /share/nas2/lislaam/masters_project/venv/bin/activate
     echo "Activated virtual environment"
     wandb login
-    export WANDB_API_KEY= 8e782a594dad15c64868ccff129984a8a344af28
+    export WANDB_API_KEY= 8e782a594dad15c64868ccff129984a8a344af28 # Labeebah
+    project_name='ska_RL'
+    echo 'project_name:' $project_name
     python /share/nas2/lislaam/masters_project/src/rl_pipeline/run_experiment.py
 done
