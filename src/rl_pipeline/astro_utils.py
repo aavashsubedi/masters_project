@@ -7,7 +7,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def resolution(wavelength, baselines):
     # Baselines is a list of baselines. Resolution depends on the longest baseline
     #return (wavelength / max(baselines))
-    return 1 / max(baselines)
+    return np.log(max(baselines)) / max(baselines)
 
 # SKIPPING CONSTANTS
 def sensitivity(num_antennas, system_temp=1, integration_time=3600, bandwidth=200e6, individual_radius=7.5):

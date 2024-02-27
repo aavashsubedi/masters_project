@@ -1,3 +1,6 @@
 project_name: "ska_RL"
 wandb: 'online'
 settings: wandb.Settings(_disable_stats=True)
+target_sensitivity: 100
+target_resolution: 0.008
+learning_rate: 0.1

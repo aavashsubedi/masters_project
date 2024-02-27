@@ -8,9 +8,11 @@
 #SBATCH --time=24:00:00
 #SBATCH --constraint=A100
 #SBATCH --exclusive
-#SBATCH --nodelist=compute-0-11
-echo "Starting run at: `date`"
+#SBATCH --nodelist=compute-0-0
+
+#echo "Starting run at: `date`"
 
 while true; do
-    pass
+    source /share/nas2/lislaam/masters_project/.venv/bin/activate
+    python /share/nas2/lislaam/masters_project/src/rl_pipeline/run_experiment.py
 done

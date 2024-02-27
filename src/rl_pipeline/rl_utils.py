@@ -3,12 +3,13 @@ import math
 import torch
 import wandb
 import omegaconf
+from scipy.spatial.distance import jensenshannon
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def baseline_dists(coordinates):
-    antennas = coordinates.size()[0]
-    return torch.tensor([math.dist(x,y) for x in coordinates for y in coordinates], device=device)
+    antennas = len(coordinates) #.size()
+    return np.array([math.dist(x,y) for x in coordinates for y in coordinates])#, device=device)
 
 
 def batchify_obs(obs, device):
@@ -42,7 +43,7 @@ def unbatchify(x, env):
 
 
 def MSE(experimental, simulated):
-    return np.square(np.subtract(experimental, simulated).mean())
+    return torch.square(torch.subtract(float(experimental), float(simulated)).mean())
 
 
 def setup_wandb(cfg):
@@ -53,3 +54,14 @@ def setup_wandb(cfg):
     #wandb.save('*.txt')
     #run.save()
     return cfg, run
+
+
+def compute_jensen(hist_1, hist_2):
+    #convert the histogram to a probability distribution
+    #first compute the histogram
+    #hist_1, bin_edges_1 = np.histogram(value_1, bins=5, density=True)
+    #hist_2, bin_edges_2 = np.histogram(value_2, bins=5, density=True)
+    #compute the jensen shannon divergence
+    hist_1 = hist_1 / np.sum(hist_1)
+    hist_2 = hist_2 / np.sum(hist_2)
+    return jensenshannon(hist_1, hist_2)

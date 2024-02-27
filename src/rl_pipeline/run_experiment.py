@@ -3,8 +3,8 @@ import wandb
 import torch
 import hydra
 from rl_utils import setup_wandb
-from agents import PPOAgent, SGD_Agent
-from sgd import train_SGD_agents
+from agents import PPO, SGD, LOLA
+from rl_pipeline.train_agent import train_agents
 
 @hydra.main(version_base='1.3', config_path="config/",
              config_name="cfg.yaml")
@@ -13,7 +13,9 @@ def main(cfg):
     num_agents = 2
     num_episodes = 15
     episode_length = 100
-    env = InterferometerEnv(1,1, num_agents=num_agents)
+
+    env = InterferometerEnv(cfg.target_sensitivity, cfg.target_resolution,
+                             num_agents=num_agents)
 
     #run = wandb.init(
     # # Set the project where this run will be logged
@@ -24,9 +26,9 @@ def main(cfg):
     #     "episodes": num_episodes,
     # },
     # )
-    agents = [SGD_Agent(num_actions=env.num_nodes,
+    agents = [SGDAgent(num_actions=env.num_nodes, learning_rate=cfg.learning_rate,
                         agent_id=env.possible_agents[i]) for i in range(num_agents)]
-    train_SGD_agents(env, agents, num_episodes=num_episodes, episode_length=episode_length,
+    train_agents(env, agents, num_episodes=num_episodes, episode_length=episode_length,
                       agent_ids=env.possible_agents)
 
 main()

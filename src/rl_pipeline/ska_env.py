@@ -1,13 +1,14 @@
 from gymnasium.spaces import Discrete, MultiDiscrete
 from pettingzoo import AECEnv
 from pettingzoo.utils import agent_selector, wrappers
+from ska_ost_array_config.array_config import LowSubArray, MidSubArray
 import wandb
 import torch
 import numpy as np
 from scipy.special import kl_div
 from math import dist
 import matplotlib.pyplot as plt
-from rl_utils import baseline_dists, MSE
+from rl_utils import *
 from astro_utils import*
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,7 +58,7 @@ class InterferometerEnv(AECEnv):
         self.target_sensitivity = target_sensitivity
         self.target_resolution = target_resolution
         self.weighting_regime = None
-        self.coordinates = torch.tensor(np.genfromtxt(coordinate_file, delimiter=',')).to(device)
+        self.coordinates = np.genfromtxt(coordinate_file, delimiter=',') # Needs to be CPU for plotting
 
         self.possible_agents = ["player_" + str(r) for r in range(self.agent_num)]
         # Mapping between agent name and ID
@@ -72,8 +73,8 @@ class InterferometerEnv(AECEnv):
 
         self.render_mode = render_mode
         self.hists = None # Save histograms of baseline distances for rendering
-        self.bin_centers = (torch.tensor([n/2 for n in range(8)][:-1], device=device) + \
-                             torch.tensor([n/2 for n in range(8)][1:], device=device)) / 2
+        self.bin_centers = (np.array([n/2 for n in range(8)][:-1]) + \
+                             np.array([n/2 for n in range(8)][1:])) / 2
 
     def observation_space(self, agent):
         return MultiDiscrete([self.agent_num for _ in range(1, self.num_nodes)])
@@ -90,10 +91,12 @@ class InterferometerEnv(AECEnv):
             array_resolution = resolution(1, baseline_dists(self.coordinates[np.where(self.alloc == n)]))
             #similarity = MSE(avg_hist, self.hists[n]) if not \
             #           np.isnan(MSE(avg_hist, self.hists[n])) else -10 # Similarity to an average
-            self.rewards[self.agents[n]] = -MSE(array_sensitivity, self.target_sensitivity) - \
-                                            MSE(array_resolution, self.target_resolution)
+            jensen_shannon = compute_jensen(self.hists[0], self.hists[1]) # Symmetric
+            self.rewards[self.agents[n]] = - jensen_shannon #-MSE(array_sensitivity, self.target_sensitivity) - \
+             #                               MSE(array_resolution, self.target_resolution)
             
             #similarity # - #np.ma.masked_invalid(kl).sum()
+        wandb.log({"J-S Divergence": jensen_shannon})
         return array_sensitivity, array_resolution
 
     def close(self):
@@ -133,38 +136,27 @@ class InterferometerEnv(AECEnv):
         self.state[self.agent_selection] = action
         self.alloc[action] = self.agent_name_mapping[agent]
 
-        avg_reward = -10000 # Large negative will be overwritten
-        for weighting_fn in (briggs_weighting, tapered_weighting):
-            self.hists = [torch.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]),
-                                        bins=self.bin_centers,
-                                        weights=weighting_fn(baseline_dists(self.coordinates[np.where(self.alloc == i)])),
-                                    density=True)[0].to(device) for i in range(self.num_agents)]
-            #kl = [kl_div(self.hists[i], self.hists[i+1]) for i in range(len(self.hists)-1)]
-            #avg_hist = torch.average(self.hists, axis=0) # Used to calculate MSE
+        self.hists = [np.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]),
+                                    bins=np.array([n/2 for n in range(8)]), #bins=8,# min=0, max=4,
+                                    #weights=weighting_fn(baseline_dists(self.coordinates[np.where(self.alloc == i)])), 
+                                    density=True
+                                )[0] for i in range(self.num_agents)]
 
-            sensitivity, resolution = self.calculate_rewards() # Updates self.rewards
-            print(sensitivity, resolution)
-            #wandb.log({"Sensitivity": sensitivity, "Resolution": resolution})
+        self.hists = [self.hists[i] / np.sum(self.hists[i]) for i in range(len(self.hists))] # Normalise histograms
 
-            if torch.mean(list(self.rewards.values())) > avg_reward:
-                self.weighting_regime = weighting_fn
+
+        #jensen_shannon = compute_jensen(self.hists[0], self.hists[1])
+        #wandb.log({"J-S Divergence": jensen_shannon})
+
+        sensitivity, resolution = self.calculate_rewards() # Updates self.rewards
+        #print(sensitivity, resolution)
+        #wandb.log({"Sensitivity": sensitivity, "Resolution": resolution})
 
         wandb.log(self.rewards)
-        # Update hists with best weighting regime
-        self.hists = [torch.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]),
-                                    bins=self.bin_centers,
-                                    weights=self.weighting_regime(baseline_dists(
-                                        self.coordinates[np.where(self.alloc == i)])),
-                                density=True)[0].to(device) for i in range(self.num_agents)]
-            
-        # The truncations dictionary must be updated for all players.
-        #self.truncations = {
-         #   agent: self.num_steps >= 200 for agent in self.agents # NOT USED
-        #}
 
         # observe the current state
         for i in self.agents:
-            self.observations[i] = self.state[self.agents[1 - self.agent_name_mapping[i]]]
+            self.observations[i] = self.state[self.agents[self.agent_name_mapping[i]]]
 
         # selects the next agent.
         self.agent_selection = self._agent_selector.next()
@@ -200,9 +192,28 @@ class InterferometerEnv(AECEnv):
         plt.close()
 
         if self.hists != None:
-            fig, axes = plt.subplots(1, self.num_agents, figsize=(15, 5))
-            for i in range(self.num_agents):
-                axes[i].bar(self.bin_centers, self.hists[i])#, align='centre', width=0.5)
+            if len(self.hists) <= 5:
+                fig, axes = plt.subplots(1, self.num_agents, figsize=(15, 5))
+                if self.num_agents == 1:
+                    axes.bar(self.bin_centers, self.hists[0], align='center', width=0.5)
+                else:
+                    for i in range(self.num_agents):
+                        axes[i].bar(self.bin_centers, self.hists[i], align='center', width=0.5)
+            
+            else:
+                fig, axes = plt.subplots(2, int((self.num_agents+1)/2), figsize=(15, 5))
+
+                for i in range(int((self.num_agents+1)/2)):
+                    axes[0][i].bar(self.bin_centers, self.hists[i], align='center', width=0.5)
+                    try:
+                        axes[1][i].bar(self.bin_centers, self.hists[int((self.num_agents+1)/2)+i],
+                                        align='center', width=0.5)
+                    except IndexError:
+                        pass
+
+                #for j in range(int((self.num_agents+1)/2), self.num_agents):
+                 #   for i in range(int((self.num_agents+1)/2)):
+    
 
             fig.savefig(r'/share/nas2/lislaam/masters_project/src/rl_pipeline/SKA_histograms.png', bbox_inches='tight')
             wandb.log({"Histograms": wandb.Image(fig)})
