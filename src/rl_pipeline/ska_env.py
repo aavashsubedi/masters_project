@@ -69,7 +69,7 @@ class InterferometerEnv(AECEnv):
         self._observation_spaces = {
             agent: MultiDiscrete([self.agent_num for _ in range(self.num_nodes)]) for agent in self.possible_agents
         } # This is the allocation space of all nodes, which can be allocated to any of n agents
-        self.alloc = self._observation_spaces['player_0'].sample() # np.array([None for _ in range(self.num_nodes)]) # Allocated node list to use in baseline_dists calculation 
+        self.alloc = self._observation_spaces['player_0'].sample() # Allocated node list to use in baseline_dists calculation 
 
         self.render_mode = render_mode
         self.hists = None # Save histograms of baseline distances for rendering

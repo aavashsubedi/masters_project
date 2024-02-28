@@ -1,7 +1,12 @@
 import numpy as np
+import math
 import torch
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def baseline_dists(coordinates):
+    antennas = len(coordinates) #.size()
+    return np.array([math.dist(x,y) for x in coordinates for y in coordinates])#, device=device)
 
 # SKIPPING CONSTANTS
 def resolution(wavelength, baselines):

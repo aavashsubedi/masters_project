@@ -7,11 +7,6 @@ from scipy.spatial.distance import jensenshannon
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def baseline_dists(coordinates):
-    antennas = len(coordinates) #.size()
-    return np.array([math.dist(x,y) for x in coordinates for y in coordinates])#, device=device)
-
-
 def batchify_obs(obs, device):
     """Converts PZ style observations to batch of torch arrays."""
     # convert to list of np arrays
@@ -23,7 +18,6 @@ def batchify_obs(obs, device):
 
     return obs
 
-
 def batchify(x, device):
     """Converts PZ style returns to batch of torch arrays."""
     # convert to list of np arrays
@@ -33,7 +27,6 @@ def batchify(x, device):
 
     return x
 
-
 def unbatchify(x, env):
     """Converts np array to PZ style arguments."""
     x = x.cpu().numpy()
@@ -41,10 +34,21 @@ def unbatchify(x, env):
 
     return x
 
-
 def MSE(experimental, simulated):
     return torch.square(torch.subtract(float(experimental), float(simulated)).mean())
 
+def compute_jensen(hist_1, hist_2):
+    # Normalise histograms
+    hist_1 = hist_1 / np.sum(hist_1)
+    hist_2 = hist_2 / np.sum(hist_2)
+    return jensenshannon(hist_1, hist_2)
+
+
+# The reward of players 1 or 2 (2 player case for now)
+def _grad_reward(reward_func): return torch.autograd.grad(reward_func)
+
+def grad_rewards(weight, agents=[0,1]):
+    return torch.concatenate([_grad_reward(weight)[agents[0]], _grad_reward(weight)[agents[1]]])
 
 def setup_wandb(cfg):
     config_dict = omegaconf.OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
@@ -54,14 +58,3 @@ def setup_wandb(cfg):
     #wandb.save('*.txt')
     #run.save()
     return cfg, run
-
-
-def compute_jensen(hist_1, hist_2):
-    #convert the histogram to a probability distribution
-    #first compute the histogram
-    #hist_1, bin_edges_1 = np.histogram(value_1, bins=5, density=True)
-    #hist_2, bin_edges_2 = np.histogram(value_2, bins=5, density=True)
-    #compute the jensen shannon divergence
-    hist_1 = hist_1 / np.sum(hist_1)
-    hist_2 = hist_2 / np.sum(hist_2)
-    return jensenshannon(hist_1, hist_2)
