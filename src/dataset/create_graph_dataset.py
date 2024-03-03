@@ -10,12 +10,15 @@ from torch_geometric.utils import from_scipy_sparse_matrix
 from  torch_geometric.transforms.distance import Distance 
 
 
-TXT_LOC = "/workspaces/masters_project/data/ska/raw_dataset.txt"
+TXT_LOC = "/workspaces/masters_project/data/ska/new_raw_data.txt"
 def generate_dataset(file_path=TXT_LOC):
     #load the dataseT
     txt_file = pd.read_csv(file_path, sep=" ", header=None)
+
     numpy_array = np.array(txt_file.values)
-    nodes = [f"{row[1]}-{row[0]}" for row in numpy_array]
+    names = numpy_array[:, 0]
+    #nodes = [f"{row[1]}-{row[0]}" for row in numpy_array]
+    nodes = [f"{row[1]}" for row in numpy_array]
     edges = set()
     
     for i in range(len(nodes)):
@@ -23,9 +26,13 @@ def generate_dataset(file_path=TXT_LOC):
             if i != j:
                 edge = (i, j) if i < j else (j, i)  # Ensure a consistent order
                 edges.add(edge)
-    
     edge_index = torch.tensor(list(edges), dtype=torch.long).t().contiguous()
-    pos = torch.tensor([[row[2], row[3]] for row in numpy_array], dtype=torch.float)
+    # pos = []
+    # for row in numpy_array:
+    #     import pdb; pdb.set_trace()
+    #     pos.append([row[-2], row[-1]])
+    
+    pos = torch.tensor([[row[-2], row[-1]] for row in numpy_array], dtype=torch.float)
     
 
 
@@ -39,6 +46,8 @@ def generate_dataset(file_path=TXT_LOC):
     #now compute the edge length 
     data = Distance(norm=False)(data)
     torch.save(data, "/workspaces/masters_project/data/graph_dataset.pt")
+    import pdb; pdb.set_trace()
+    data.name = names
     
     return 0
 
