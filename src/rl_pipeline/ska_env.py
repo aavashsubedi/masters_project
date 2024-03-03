@@ -5,8 +5,6 @@ from ska_ost_array_config.array_config import LowSubArray, MidSubArray
 import wandb
 import torch
 import numpy as np
-from scipy.special import kl_div
-from math import dist
 import matplotlib.pyplot as plt
 from rl_utils import *
 from astro_utils import*
@@ -87,8 +85,8 @@ class InterferometerEnv(AECEnv):
     
     def calculate_rewards(self):
         for n in range(self.num_agents): # Update rewards
-            array_sensitivity = sensitivity(len(np.where(self.alloc == n)[0]))
-            array_resolution = resolution(1, baseline_dists(self.coordinates[np.where(self.alloc == n)]))
+            #array_sensitivity = sensitivity(len(np.where(self.alloc == n)[0]))
+            #array_resolution = resolution(1, baseline_dists(self.coordinates[np.where(self.alloc == n)]))
             #similarity = MSE(avg_hist, self.hists[n]) if not \
             #           np.isnan(MSE(avg_hist, self.hists[n])) else -10 # Similarity to an average
             jensen_shannon = compute_jensen(self.hists[0], self.hists[1]) # Symmetric
@@ -97,7 +95,7 @@ class InterferometerEnv(AECEnv):
             
             #similarity # - #np.ma.masked_invalid(kl).sum()
         wandb.log({"J-S Divergence": jensen_shannon})
-        return array_sensitivity, array_resolution
+        return #array_sensitivity, array_resolution
 
     def close(self):
         pass
@@ -107,14 +105,14 @@ class InterferometerEnv(AECEnv):
         Reset needs to initialize the attributes
         """
         self.agents = self.possible_agents[:]
-        self.rewards = {agent: -10 for agent in self.agents}
+        self.rewards = {agent: 0 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
         self.terminations = {agent: False for agent in self.agents}
         self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}
-        self.state = {agent: None for agent in self.agents}
-        self.observations = {agent: None for agent in self.agents}
-        self.alloc = self._observation_spaces['player_0'].sample()
+        self.state = {agent: torch.tensor(self._observation_spaces['player_0'].sample(), device=device) for agent in self.agents}
+        self.observations = {agent: self._observation_spaces[agent].sample() for agent in self.agents}
+        self.alloc = torch.tensor(self._observation_spaces['player_0'].sample(), device=device)
         # Cyclic stepping through the agents list.
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.next()
@@ -132,26 +130,17 @@ class InterferometerEnv(AECEnv):
             return
 
         agent = self.agent_selection
-        # stores action of current agent
-        self.state[self.agent_selection] = action
+        # Label each node for which agent it is allocated to
         self.alloc[action] = self.agent_name_mapping[agent]
-
-        self.hists = [np.histogram(baseline_dists(self.coordinates[np.where(self.alloc == i)]),
+        self.state[self.agent_selection] = self.alloc
+        self.hists = [np.histogram(baseline_dists(self.coordinates[torch.where(self.alloc == i)[0].tolist()]),
                                     bins=np.array([n/2 for n in range(8)]), #bins=8,# min=0, max=4,
                                     #weights=weighting_fn(baseline_dists(self.coordinates[np.where(self.alloc == i)])), 
-                                    density=True
-                                )[0] for i in range(self.num_agents)]
+                                    density=True)[0] for i in range(self.num_agents)]
 
         self.hists = [self.hists[i] / np.sum(self.hists[i]) for i in range(len(self.hists))] # Normalise histograms
 
-
-        #jensen_shannon = compute_jensen(self.hists[0], self.hists[1])
-        #wandb.log({"J-S Divergence": jensen_shannon})
-
-        sensitivity, resolution = self.calculate_rewards() # Updates self.rewards
-        #print(sensitivity, resolution)
-        #wandb.log({"Sensitivity": sensitivity, "Resolution": resolution})
-
+        self.calculate_rewards() # Updates self.rewards
         wandb.log(self.rewards)
 
         # observe the current state
@@ -174,9 +163,6 @@ class InterferometerEnv(AECEnv):
         color = iter(plt.cm.rainbow(np.linspace(0, 1, self.num_agents)))
         for i in range(self.num_agents):
             colours.append(next(color))
-
-        #if self.render_mode == "human":
-         #   return self._render_frame(colours)
             
         for i in range(self.num_agents):
             for n in range(self.num_nodes):
@@ -210,10 +196,6 @@ class InterferometerEnv(AECEnv):
                                         align='center', width=0.5)
                     except IndexError:
                         pass
-
-                #for j in range(int((self.num_agents+1)/2), self.num_agents):
-                 #   for i in range(int((self.num_agents+1)/2)):
-    
 
             fig.savefig(r'/share/nas2/lislaam/masters_project/src/rl_pipeline/SKA_histograms.png', bbox_inches='tight')
             wandb.log({"Histograms": wandb.Image(fig)})

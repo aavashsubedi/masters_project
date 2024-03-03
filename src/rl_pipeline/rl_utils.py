@@ -1,11 +1,27 @@
 import numpy as np
 import math
 import torch
+import torch.nn as nn
 import wandb
 import omegaconf
 from scipy.spatial.distance import jensenshannon
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+class PolicyNetwork(nn.Module):
+    def __init__(self, num_actions):
+        super(PolicyNetwork, self).__init__()
+        self.relu = nn.ReLU()
+        self.fc = nn.Linear(num_actions, 64)
+        self.fc_pi = nn.Linear(64, num_actions)
+
+    def forward(self, x):
+        x = x.to(torch.float32)
+        x = self.relu(self.fc(x))
+        #import pdb; pdb.set_trace()
+        logits = self.fc_pi(x)
+        return logits
+
 
 def batchify_obs(obs, device):
     """Converts PZ style observations to batch of torch arrays."""
@@ -42,7 +58,6 @@ def compute_jensen(hist_1, hist_2):
     hist_1 = hist_1 / np.sum(hist_1)
     hist_2 = hist_2 / np.sum(hist_2)
     return jensenshannon(hist_1, hist_2)
-
 
 # The reward of players 1 or 2 (2 player case for now)
 def _grad_reward(reward_func): return torch.autograd.grad(reward_func)

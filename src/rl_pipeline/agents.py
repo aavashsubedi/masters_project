@@ -5,8 +5,7 @@ import torch.optim as optim
 from torch.distributions.categorical import Categorical
 from torch.nn import functional as F
 import wandb
-#from supersuit import color_reduction_v0, frame_stack_v1, resize_v1
-
+from rl_utils import PolicyNetwork
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -39,18 +38,19 @@ class LOLA(nn.Module):
         self.agent_id = agent_id
         self.num_actions = num_actions
         self.learning_rate = learning_rate
-        self.Q = nn.Parameter(torch.zeros((num_actions, num_actions)), requires_grad=True) # Q-values for joint actions
-        self.softmax = nn.Softmax(dim=1)
+        self.Q = torch.zeros((num_actions, num_actions), requires_grad=True) # Q-values for joint actions
         self.weights = (torch.ones(num_actions, num_actions, device=device) / num_actions).squeeze() # Stochastic policy
     
     def select_action(self, opponent_action):
         if opponent_action == None:
             opponent_action = 0
         # Convert Q-values to probabilities using softmax
-        probs = self.softmax(self.Q[:, opponent_action])
+        #probs = self.softmax(self.Q[:, opponent_action])
+        policy = self.weights.unsqueeze(0)
         # Sample action from the probability distribution
         wandb.log({'{0} weights'.format(self.agent_id): self.weights})
-        return torch.multinomial(probs, 1, replacement=True).item() # torch.multinomial(self.weights[:, opponent_action].squeeze(), num_samples=1, replacement=True).item()
+
+        return torch.multinomial(policy[:, :, opponent_action], 1).item() # Without replacement
 
     def update_weights(self, own_action, opponent_action, own_reward, opponent_reward):
         # Update weights using policy gradient
@@ -58,47 +58,76 @@ class LOLA(nn.Module):
         gradient[own_action, opponent_action] = 1
 
         # Update Q-values using gradient descent
-        self.Q += self.learning_rate * (own_reward + opponent_reward - self.Q[own_action, opponent_action]) * gradient
-        # Update policy using softmax function
-        self.weights = torch.softmax(self.Q, dim=0)
+        q_values = self.Q[own_action, opponent_action]
+        loss = -(own_reward + opponent_reward - q_values)
+        loss.backward()
+        
+        with torch.no_grad():
+            # Update Q-values
+            self.Q.data -= self.learning_rate * self.Q.grad
+            # Reset gradients
+            self.Q.grad.zero_()
+            # Update policy using softmax function
+            self.weights = F.softmax(self.Q, dim=0)
 
         return None
 
 
-class PPO(nn.Module):
-    def __init__(self, num_actions):
-        super().__init__()
+class PPO:
+    def __init__(self, num_actions, agent_id, learning_rate, exploration, 
+                 gamma=0.99, clip_ratio=0.2, value_coef=0.5, entropy_coef=0.01): # Exploration not used
+        self.policy_net = PolicyNetwork(num_actions).to(device)
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=learning_rate)
+        self.num_actions = num_actions
+        self.gamma = gamma
+        self.clip_ratio = clip_ratio
+        self.value_coef = value_coef
+        self.entropy_coef = entropy_coef
+        self.agent_id = agent_id
 
-        self.network = nn.Sequential(
-            self._layer_init(nn.Conv2d(4, 32, 3, padding=1)),
-            nn.MaxPool2d(2),
-            nn.ReLU(),
-            self._layer_init(nn.Conv2d(32, 64, 3, padding=1)),
-            nn.MaxPool2d(2),
-            nn.ReLU(),
-            self._layer_init(nn.Conv2d(64, 128, 3, padding=1)),
-            nn.MaxPool2d(2),
-            nn.ReLU(),
-            nn.Flatten(),
-            self._layer_init(nn.Linear(128 * 8 * 8, 512)),
-            nn.ReLU(),
-        )
-        self.actor = self._layer_init(nn.Linear(512, num_actions), std=0.01)
-        self.critic = self._layer_init(nn.Linear(512, 1))
+    def select_action(self, state):
+        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
+        with torch.no_grad():
+            logits = self.policy_net(state_tensor)
+            dist = torch.distributions.Categorical(logits=logits)
+            action = dist.sample()
+        return dist, action.item()
 
-    def _layer_init(self, layer, std=np.sqrt(2), bias_const=0.0):
-        torch.nn.init.orthogonal_(layer.weight, std)
-        torch.nn.init.constant_(layer.bias, bias_const)
-        return layer
+    def update(self, rollout):
+        states, actions, old_log_probs, rewards, next_states, dones = rollout
+        returns = self._compute_returns(rewards)
+        #returns = torch.FloatTensor(returns)
+        #old_log_probs = torch.stack(old_log_probs)
+        
+        for _ in range(10):  # PPO epoch
+            logits = self.policy_net(states)
+            
+            dist = torch.distributions.Categorical(logits=logits)
+            log_probs = dist.log_prob(actions)
+            wandb.log({'{0} weights'.format(self.agent_id): log_probs})
+            entropy = dist.entropy().mean()
 
-    def get_value(self, x):
-        return self.critic(self.network(x / 255.0))
+            ratio = torch.exp(log_probs - old_log_probs)
+            surr1 = ratio * returns
+            surr2 = torch.clamp(ratio, 1 - self.clip_ratio, 1 + self.clip_ratio) * returns
+            actor_loss = -torch.min(surr1, surr2).mean()
+            
+            values = self.policy_net(states) #.gather(1, actions.unsqueeze(1)).squeeze(1)
+            value_loss = nn.MSELoss()(values, returns)
 
-    def get_action_and_value(self, x, action=None):
-        hidden = self.network(x / 255.0)
-        logits = self.actor(hidden)
-        probs = Categorical(logits=logits)
-        if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action), probs.entropy(), self.critic(hidden)
+            loss = actor_loss + self.value_coef * value_loss - self.entropy_coef * entropy
+            import pdb; pdb.set_trace()
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+    def _compute_returns(self, rewards):
+        returns = []
+        R = 0
+        #for r in reversed(rewards):
+        R = rewards + self.gamma * R
+        returns.insert(0, R)
+        returns = np.array(returns)
+        returns = (returns - returns.mean()) / (returns.std() + 1e-5)  # normalize returns
+        return torch.tensor(rewards, device=device)
     

@@ -1,10 +1,10 @@
 project_name: "ska_RL"
-wandb: 'online'
+wandb: 'offline'
 settings: wandb.Settings(_disable_stats=True)
 num_agents: 2
 episodes: 15
 episode_length: 200
 target_sensitivity: 100
 target_resolution: 0.008
-agent_type: Random # SGD or LOLA
+agent_type: PPO # Random, SGD, LOLA, PPO
 learning_rate: 0.1

@@ -39,7 +39,6 @@ def train_LOLA(env, agents, num_episodes, episode_length, agent_ids):
             actions = [] # Track actions for each player so LOLA can update
             for i in range(num_agents):
                 action = agents[i].select_action(states[agent_ids[i]])
-                #print(action)
                 next_state, reward, done[i], _ = env.step(action)
                 actions.append(action)
 
@@ -50,3 +49,31 @@ def train_LOLA(env, agents, num_episodes, episode_length, agent_ids):
 
         wandb.log({'{0} Episode Reward'.format(agent_ids[i]): total_rewards[i] for i in range(num_agents)})
         print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_rewards}")
+
+
+def train_PPO(env, agents, num_episodes, episode_length, agent_ids):
+    num_agents = len(agents)
+    
+    for episode in range(num_episodes):
+        states, info = env.reset() # states is a dict
+        done = False
+        episode_rewards = [0] * num_agents
+        while not done:
+            next_states = []
+            for i, agent in enumerate(agents):
+                dist, action = agent.select_action(states[agent_ids[i]])
+                next_state, rewards, done, _ = env.step(action)
+                action = torch.tensor(action, device=device)
+                print(next_state)
+                episode_rewards += rewards
+                next_states.append(next_state)
+
+                #import pdb; pdb.set_trace()
+                agent.update((states[agent_ids[i]], action, 
+                              dist.log_prob(action),
+                               rewards[agent_ids[i]], None, done))
+            states = next_states
+        env.close
+
+        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): episode_rewards[i] for i in range(num_agents)})
+        print(f"Episode {episode}: Total rewards: {episode_rewards}")
