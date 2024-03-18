@@ -40,7 +40,7 @@ class InterferometerEnv(AECEnv):
     metadata = {"render_modes": ["human"], "name": "rps_v2"}
 
     def __init__(self, target_sensitivity, target_resolution,
-                 num_nodes=197, num_agents=2,
+                 num_nodes=197, num_arrays=2,
                  coordinate_file=r"/share/nas2/lislaam/masters_project/src/dataset/ska_xy_coordinates.csv", 
                  render_mode='human'):
         """
@@ -52,44 +52,37 @@ class InterferometerEnv(AECEnv):
         These attributes should not be changed after initialization.
         """
         self.num_nodes = num_nodes
-        self.agent_num = num_agents
+        self.array_num = num_arrays
         self.target_sensitivity = target_sensitivity
         self.target_resolution = target_resolution
         self.weighting_regime = None
         self.coordinates = np.genfromtxt(coordinate_file, delimiter=',') # Needs to be CPU for plotting
 
-        self.possible_agents = ["player_" + str(r) for r in range(self.agent_num)]
-        # Mapping between agent name and ID
-        self.agent_name_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
-
         # optional: we can define the observation and action spaces here as attributes to be used in their corresponding methods
-        self._action_spaces = {agent: Discrete(self.num_nodes) for agent in self.possible_agents}
-        self._observation_spaces = {
-            agent: MultiDiscrete([self.agent_num for _ in range(self.num_nodes)]) for agent in self.possible_agents
-        } # This is the allocation space of all nodes, which can be allocated to any of n agents
-        self.alloc = self._observation_spaces['player_0'].sample() # Allocated node list to use in baseline_dists calculation 
+        self._action_spaces = Discrete(self.num_nodes)
+        self._observation_spaces = MultiDiscrete([self.array_num for _ in range(self.num_nodes)]) # This is the allocation space of all nodes, which can be allocated to any of n agents
+        self.alloc = self._observation_spaces.sample() # Allocated node list to use in baseline_dists calculation 
 
         self.render_mode = render_mode
         self.hists = None # Save histograms of baseline distances for rendering
         self.bin_centers = (np.array([n/2 for n in range(8)][:-1]) + \
                              np.array([n/2 for n in range(8)][1:])) / 2
 
-    def observation_space(self, agent):
-        return MultiDiscrete([self.agent_num for _ in range(1, self.num_nodes)]) # {(0,1,0,0,1,)}
+    def observation_space(self):
+        return MultiDiscrete([self.array_num for _ in range(1, self.num_nodes)]) # {(0,1,0,0,1,)}
 
-    def action_space(self, agent):
-        return Discrete(self.graph.number_of_nodes()) # {0....196} # Change to permutation
+    def action_space(self):
+        return torch.eye(self.num_nodes)[torch.randperm(self.num_nodes)]
+        #return Discrete(self.graph.number_of_nodes()) # {0....196} # Change to permutation
 
     def observe(self, agent):
         return np.array(self.observations[agent])
     
     def calculate_rewards(self):
-        for n in range(self.num_agents): # Update rewards
-            jensen_shannon = compute_jensen(self.hists[0], self.hists[1]) # Symmetric
-            self.rewards[self.agents[n]] = - jensen_shannon #-MSE(array_sensitivity, self.target_sensitivity) - \
-             #                               MSE(array_resolution, self.target_resolution)
+        jensen_shannon = compute_jensen(self.hists[0], self.hists[1]) # Symmetric
+        self.reward = - jensen_shannon 
         wandb.log({"J-S Divergence": jensen_shannon})
-        return #array_sensitivity, array_resolution
+        return None
 
     def close(self):
         pass
@@ -98,20 +91,16 @@ class InterferometerEnv(AECEnv):
         """
         Reset needs to initialize the attributes
         """
-        self.agents = self.possible_agents[:]
-        self.rewards = {agent: 0 for agent in self.agents}
-        self._cumulative_rewards = {agent: 0 for agent in self.agents}
-        self.terminations = {agent: False for agent in self.agents}
-        self.truncations = {agent: False for agent in self.agents}
-        self.infos = {agent: {} for agent in self.agents}
-        self.state = {agent: torch.tensor(self._observation_spaces['player_0'].sample(), device=device) for agent in self.agents}
-        self.observations = {agent: self._observation_spaces[agent].sample() for agent in self.agents}
-        self.alloc = torch.tensor(self._observation_spaces['player_0'].sample(), device=device)
-        # Cyclic stepping through the agents list.
-        self._agent_selector = agent_selector(self.agents)
-        self.agent_selection = self._agent_selector.next()
+        self.reward = 0
+        self._cumulative_reward = 0
+        self.termination = False
+        self.truncation = False
+        self.infos = {}
+        self.state = torch.tensor(self._observation_spaces.sample(), device=device)
+        self.observation = self._observation_spaces.sample()
+        self.alloc = torch.tensor(self._observation_spaces.sample(), device=device)
 
-        return self.observations, self.infos
+        return self.observation, self.infos
 
     def step(self, action):
         """
@@ -124,13 +113,13 @@ class InterferometerEnv(AECEnv):
             return
 
         agent = self.agent_selection
-        # Label each node for which agent it is allocated to
+        # Label each node for which array it is allocated to
         self.alloc[action] = self.agent_name_mapping[agent]
         self.state[self.agent_selection] = self.alloc
         self.hists = [np.histogram(baseline_dists(self.coordinates[torch.where(self.alloc == i)[0].tolist()]),
                                     bins=np.array([n/2 for n in range(8)]), #bins=8,# min=0, max=4,
                                     #weights=weighting_fn(baseline_dists(self.coordinates[np.where(self.alloc == i)])), 
-                                    density=True)[0] for i in range(self.num_agents)]
+                                    density=True)[0] for i in range(self.num_arrays)]
 
         self.hists = [self.hists[i] / np.sum(self.hists[i]) for i in range(len(self.hists))] # Normalise histograms
 
@@ -154,11 +143,11 @@ class InterferometerEnv(AECEnv):
 
     def render(self):
         colours = []
-        color = iter(plt.cm.rainbow(np.linspace(0, 1, self.num_agents)))
-        for i in range(self.num_agents):
+        color = iter(plt.cm.rainbow(np.linspace(0, 1, self.num_arrays)))
+        for i in range(self.num_arrays):
             colours.append(next(color))
             
-        for i in range(self.num_agents):
+        for i in range(self.num_arrays):
             for n in range(self.num_nodes):
                 if self.alloc[n] == i:
                     plt.plot(self.coordinates[n, 0], self.coordinates[n, 1], '.', color=colours[i], 
@@ -173,22 +162,22 @@ class InterferometerEnv(AECEnv):
 
         if self.hists != None:
             if len(self.hists) <= 5:
-                fig, axes = plt.subplots(1, self.num_agents, figsize=(15, 5))
-                if self.num_agents == 1:
+                fig, axes = plt.subplots(1, self.num_arrays, figsize=(15, 5))
+                if self.num_arrays == 1:
                     axes.bar(self.bin_centers, self.hists[0], align='center', width=0.5)
                 else:
-                    for i in range(self.num_agents):
+                    for i in range(self.num_arrays):
                         axes[i].bar(self.bin_centers, self.hists[i], align='center', width=0.5)
                         axes[i].set_ylim(0, 0.6)
             
             else:
-                fig, axes = plt.subplots(2, int((self.num_agents+1)/2), figsize=(15, 5))
+                fig, axes = plt.subplots(2, int((self.num_arrays+1)/2), figsize=(15, 5))
 
-                for i in range(int((self.num_agents+1)/2)):
+                for i in range(int((self.num_arrays+1)/2)):
                     axes[0][i].bar(self.bin_centers, self.hists[i], align='center', width=0.5)
                     axes[0][i].set_ylim(0, 0.6)
                     try:
-                        axes[1][i].bar(self.bin_centers, self.hists[int((self.num_agents+1)/2)+i],
+                        axes[1][i].bar(self.bin_centers, self.hists[int((self.num_arrays+1)/2)+i],
                                         align='center', width=0.5)
                         axes[1][i].set_ylim(0, 0.6)
                     except IndexError:
