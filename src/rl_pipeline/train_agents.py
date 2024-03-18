@@ -55,25 +55,74 @@ def train_PPO(env, agents, num_episodes, episode_length, agent_ids):
     num_agents = len(agents)
     
     for episode in range(num_episodes):
+        #import pdb; pdb.set_trace()
         states, info = env.reset() # states is a dict
         done = False
         episode_rewards = [0] * num_agents
-        while not done:
+        for _ in range(episode_length):
             next_states = []
             for i, agent in enumerate(agents):
                 dist, action = agent.select_action(states[agent_ids[i]])
                 next_state, rewards, done, _ = env.step(action)
                 action = torch.tensor(action, device=device)
-                print(next_state)
-                episode_rewards += rewards
+                episode_rewards = [x + y for x, y in zip(episode_rewards, rewards.values())]
                 next_states.append(next_state)
 
-                #import pdb; pdb.set_trace()
                 agent.update((states[agent_ids[i]], action, 
                               dist.log_prob(action),
                                rewards[agent_ids[i]], None, done))
             states = next_states
-        env.close
+        env.close()
+
+        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): episode_rewards[i] for i in range(num_agents)})
+        print(f"Episode {episode}: Total rewards: {episode_rewards}")
+
+
+def train_DDPG(env, agents, num_episodes, episode_length, agent_ids):
+    num_agents = len(agents)
+    
+    for episode in range(num_episodes):
+        #import pdb; pdb.set_trace()
+        states, info = env.reset() # states is a dict
+        done = False
+        episode_rewards = [0] * num_agents
+        for _ in range(episode_length):
+            next_states = []
+            for i, agent in enumerate(agents):
+                action = agent.select_action(states[agent_ids[i]])
+                next_state, rewards, done, _ = env.step(action)
+                action = torch.tensor(action, device=device)
+                episode_rewards = [x + y for x, y in zip(episode_rewards, rewards.values())]
+                next_states.append(next_state)
+
+                agent.update()
+            states = next_states
+        env.close()
+
+        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): episode_rewards[i] for i in range(num_agents)})
+        print(f"Episode {episode}: Total rewards: {episode_rewards}")
+
+
+def train_DQN(env, agents, num_episodes, episode_length, agent_ids):
+    num_agents = len(agents)
+    
+    for episode in range(num_episodes):
+        states, info = env.reset() # states is a dict
+        done = False
+        episode_rewards = [0] * num_agents
+
+        for _ in range(episode_length):
+            for i, agent in enumerate(agents):
+                action = agent.select_action(states[agent_ids[i]])
+                next_state, rewards, done, _ = env.step(action)
+
+                agent.replay_buffer.push(states[agent_ids[i]], action, 
+                                        next_state[agent_ids[i]], rewards[agent_ids[i]], done)
+                agent.update()
+                agent.decay_epsilon()
+                states[agent_ids[i]] = next_state
+                episode_rewards = [x + y for x, y in zip(episode_rewards, rewards.values())]
+        env.close()
 
         wandb.log({'{0} Episode Reward'.format(agent_ids[i]): episode_rewards[i] for i in range(num_agents)})
         print(f"Episode {episode}: Total rewards: {episode_rewards}")

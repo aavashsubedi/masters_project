@@ -75,25 +75,19 @@ class InterferometerEnv(AECEnv):
                              np.array([n/2 for n in range(8)][1:])) / 2
 
     def observation_space(self, agent):
-        return MultiDiscrete([self.agent_num for _ in range(1, self.num_nodes)])
+        return MultiDiscrete([self.agent_num for _ in range(1, self.num_nodes)]) # {(0,1,0,0,1,)}
 
     def action_space(self, agent):
-        return Discrete(self.graph.number_of_nodes())
+        return Discrete(self.graph.number_of_nodes()) # {0....196} # Change to permutation
 
     def observe(self, agent):
         return np.array(self.observations[agent])
     
     def calculate_rewards(self):
         for n in range(self.num_agents): # Update rewards
-            #array_sensitivity = sensitivity(len(np.where(self.alloc == n)[0]))
-            #array_resolution = resolution(1, baseline_dists(self.coordinates[np.where(self.alloc == n)]))
-            #similarity = MSE(avg_hist, self.hists[n]) if not \
-            #           np.isnan(MSE(avg_hist, self.hists[n])) else -10 # Similarity to an average
             jensen_shannon = compute_jensen(self.hists[0], self.hists[1]) # Symmetric
             self.rewards[self.agents[n]] = - jensen_shannon #-MSE(array_sensitivity, self.target_sensitivity) - \
              #                               MSE(array_resolution, self.target_resolution)
-            
-            #similarity # - #np.ma.masked_invalid(kl).sum()
         wandb.log({"J-S Divergence": jensen_shannon})
         return #array_sensitivity, array_resolution
 
@@ -141,7 +135,7 @@ class InterferometerEnv(AECEnv):
         self.hists = [self.hists[i] / np.sum(self.hists[i]) for i in range(len(self.hists))] # Normalise histograms
 
         self.calculate_rewards() # Updates self.rewards
-        wandb.log(self.rewards)
+        #wandb.log(self.rewards)
 
         # observe the current state
         for i in self.agents:
@@ -185,18 +179,21 @@ class InterferometerEnv(AECEnv):
                 else:
                     for i in range(self.num_agents):
                         axes[i].bar(self.bin_centers, self.hists[i], align='center', width=0.5)
+                        axes[i].set_ylim(0, 0.6)
             
             else:
                 fig, axes = plt.subplots(2, int((self.num_agents+1)/2), figsize=(15, 5))
 
                 for i in range(int((self.num_agents+1)/2)):
                     axes[0][i].bar(self.bin_centers, self.hists[i], align='center', width=0.5)
+                    axes[0][i].set_ylim(0, 0.6)
                     try:
                         axes[1][i].bar(self.bin_centers, self.hists[int((self.num_agents+1)/2)+i],
                                         align='center', width=0.5)
+                        axes[1][i].set_ylim(0, 0.6)
                     except IndexError:
                         pass
-
+        
             fig.savefig(r'/share/nas2/lislaam/masters_project/src/rl_pipeline/SKA_histograms.png', bbox_inches='tight')
             wandb.log({"Histograms": wandb.Image(fig)})
             plt.close()
