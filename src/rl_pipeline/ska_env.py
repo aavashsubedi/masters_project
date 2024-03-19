@@ -52,16 +52,16 @@ class InterferometerEnv(AECEnv):
         These attributes should not be changed after initialization.
         """
         self.num_nodes = num_nodes
-        self.array_num = num_arrays
+        self.num_arrays = num_arrays
         self.target_sensitivity = target_sensitivity
         self.target_resolution = target_resolution
         self.weighting_regime = None
         self.coordinates = np.genfromtxt(coordinate_file, delimiter=',') # Needs to be CPU for plotting
 
         # optional: we can define the observation and action spaces here as attributes to be used in their corresponding methods
-        self._action_spaces = Discrete(self.num_nodes)
-        self._observation_spaces = MultiDiscrete([self.array_num for _ in range(self.num_nodes)]) # This is the allocation space of all nodes, which can be allocated to any of n agents
-        self.alloc = self._observation_spaces.sample() # Allocated node list to use in baseline_dists calculation 
+        self._action_spaces = torch.eye(self.num_nodes)[torch.randperm(self.num_nodes)]
+        self._observation_spaces = MultiDiscrete([self.num_arrays for _ in range(self.num_nodes)]) # This is the allocation space of all nodes, which can be allocated to any of n agents
+        self.state = self._observation_spaces.sample() # Allocated node list to use in baseline_dists calculation 
 
         self.render_mode = render_mode
         self.hists = None # Save histograms of baseline distances for rendering
@@ -69,7 +69,7 @@ class InterferometerEnv(AECEnv):
                              np.array([n/2 for n in range(8)][1:])) / 2
 
     def observation_space(self):
-        return MultiDiscrete([self.array_num for _ in range(1, self.num_nodes)]) # {(0,1,0,0,1,)}
+        return MultiDiscrete([self.num_arrays for _ in range(1, self.num_nodes)]) # (2,1,0,0,1,...)
 
     def action_space(self):
         return torch.eye(self.num_nodes)[torch.randperm(self.num_nodes)]
@@ -98,7 +98,6 @@ class InterferometerEnv(AECEnv):
         self.infos = {}
         self.state = torch.tensor(self._observation_spaces.sample(), device=device)
         self.observation = self._observation_spaces.sample()
-        self.alloc = torch.tensor(self._observation_spaces.sample(), device=device)
 
         return self.observation, self.infos
 
@@ -114,31 +113,21 @@ class InterferometerEnv(AECEnv):
 
         agent = self.agent_selection
         # Label each node for which array it is allocated to
-        self.alloc[action] = self.agent_name_mapping[agent]
-        self.state[self.agent_selection] = self.alloc
-        self.hists = [np.histogram(baseline_dists(self.coordinates[torch.where(self.alloc == i)[0].tolist()]),
-                                    bins=np.array([n/2 for n in range(8)]), #bins=8,# min=0, max=4,
-                                    #weights=weighting_fn(baseline_dists(self.coordinates[np.where(self.alloc == i)])), 
+        self.state[action] = self.agent_name_mapping[agent]
+        self.hists = [np.histogram(baseline_dists(self.coordinates[torch.where(self.state == i)[0].tolist()]),
+                                    bins=np.array([n/2 for n in range(8)]),
                                     density=True)[0] for i in range(self.num_arrays)]
 
         self.hists = [self.hists[i] / np.sum(self.hists[i]) for i in range(len(self.hists))] # Normalise histograms
 
-        self.calculate_rewards() # Updates self.rewards
-        #wandb.log(self.rewards)
-
-        # observe the current state
-        for i in self.agents:
-            self.observations[i] = self.state[self.agents[self.agent_name_mapping[i]]]
-
-        # selects the next agent.
-        self.agent_selection = self._agent_selector.next()
-        # Adds .rewards to ._cumulative_rewards
-        self._accumulate_rewards()
+        self.calculate_rewards() # Also updates self.rewards
+        self.observation = self.state # observe the current state
+        self._accumulate_rewards() # Adds .rewards to ._cumulative_rewards
 
         if self.render_mode == "human":
             self.render()
 
-        return self.observations, self.rewards, self.terminations, self.truncations
+        return self.observation, self.rewards, self.terminations, self.truncations
 
 
     def render(self):
@@ -149,9 +138,9 @@ class InterferometerEnv(AECEnv):
             
         for i in range(self.num_arrays):
             for n in range(self.num_nodes):
-                if self.alloc[n] == i:
+                if self.state[n] == i:
                     plt.plot(self.coordinates[n, 0], self.coordinates[n, 1], '.', color=colours[i], 
-                                label='Agent {}'.format(i+1))
+                                label='Array {}'.format(i+1))
                     
         #plt.legend()
         plt.xlim(-40, 60)
