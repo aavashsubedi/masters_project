@@ -72,7 +72,7 @@ class InterferometerEnv(AECEnv):
         return MultiDiscrete([self.num_arrays for _ in range(1, self.num_nodes)]) # (2,1,0,0,1,...)
 
     def action_space(self):
-        return torch.eye(self.num_nodes)[torch.randperm(self.num_nodes)]
+        return torch.eye(self.num_nodes)[torch.randperm(self.num_nodes)] # Set of permutations
         #return Discrete(self.graph.number_of_nodes()) # {0....196} # Change to permutation
 
     def observe(self, agent):
@@ -103,17 +103,8 @@ class InterferometerEnv(AECEnv):
 
     def step(self, action):
         """
-        step(action) takes in an action for the current agent (specified by
-        agent_selection) and needs to update any internal state used by observe() or render()
+        step(action) takes in an action and needs to update any internal state used by observe() or render()
         """
-        if (self.terminations[self.agent_selection]
-            or self.truncations[self.agent_selection]):
-            # handles stepping an agent which is already finished
-            return
-
-        agent = self.agent_selection
-        # Label each node for which array it is allocated to
-        self.state[action] = self.agent_name_mapping[agent]
         self.hists = [np.histogram(baseline_dists(self.coordinates[torch.where(self.state == i)[0].tolist()]),
                                     bins=np.array([n/2 for n in range(8)]),
                                     density=True)[0] for i in range(self.num_arrays)]

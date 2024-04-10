@@ -8,6 +8,74 @@ from scipy.spatial.distance import jensenshannon
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# https://github.com/openai/baselines/blob/master/baselines/ddpg/memory.py
+
+class RingBuffer:
+    def __init__(self, maxlen, shape, dtype='torch.FloatTensor'):
+        self.maxlen = maxlen
+        self.start = 0 # the idx of the 0th element in the buffer
+        self.length = 0
+        self.data = torch.zeros(maxlen, *shape, device=device).type(dtype)
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, idx):
+        if idx < 0 or idx >= self.length:
+            raise KeyError()
+        return self.data[(self.start + idx) % self.maxlen]
+
+    def get_batch(self, idxs):
+        torch_idxs = torch.from_numpy((self.start + idxs) % self.maxlen, device=device).long()
+        return self.data[torch_idxs]
+
+
+    def append(self, v):
+        batch_size = v.shape[0]
+        for i in range(batch_size):
+            if self.length < self.maxlen:
+                # We have space, simply increase the length.
+                self.length += 1
+            elif self.length == self.maxlen:
+                # No space, "remove" the first item.
+                self.start = (self.start + 1) % self.maxlen
+            else:
+                # This should never happen.
+                raise RuntimeError()
+            self.data[(self.start + self.length - 1) % self.maxlen] = v[i]
+
+
+class Memory:
+    def __init__(self, limit, action_shape, observation_shape):
+        self.limit = limit
+
+        self.observations = RingBuffer(limit, observation_shape)
+        self.discrete_actions = RingBuffer(limit, action_shape, dtype='torch.ByteTensor')
+        self.dense_actions = RingBuffer(limit, action_shape)
+        self.rewards = RingBuffer(limit, [1])
+
+    def sample(self, batch_size):
+        # Draw such that we always have a proceeding element.
+        batch_idxs = np.random.random_integers(self.nb_entries - 2, size=batch_size)
+
+        obs_batch = self.observations.get_batch(batch_idxs)
+        discrete_actions_batch = self.discrete_actions.get_batch(batch_idxs)
+        dense_actions_batch = self.dense_actions.get_batch(batch_idxs)
+        reward_batch = self.rewards.get_batch(batch_idxs)
+
+        return obs_batch, discrete_actions_batch, dense_actions_batch, reward_batch
+
+    def append(self, obs, discrete_action, dense_action, reward):
+        self.observations.append(obs)
+        self.discrete_actions.append(discrete_action)
+        self.dense_actions.append(dense_action)
+        self.rewards.append(reward)
+
+    @property
+    def nb_entries(self):
+        return len(self.observations)
+
+
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_dim):
         super(Actor, self).__init__()

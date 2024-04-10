@@ -13,7 +13,8 @@ REGIMES = {'Random': [SGD, train_SGD, 1],
            'LOLA': [LOLA, train_LOLA, None],
            'PPO': [PPO, train_PPO, None],
            'DDPG': [DDPG, train_DDPG, None], # Only for continuous action spaces!
-           'DQN': [DQN, train_DQN, None]}
+           'DQN': [DQN, train_DQN, None],
+           'SPG': [SGD, train_SGD, None]}
 
 @hydra.main(version_base='1.3', config_path="config/",
              config_name="cfg.yaml")
@@ -29,8 +30,17 @@ def main(cfg):
 
     env = InterferometerEnv(cfg.target_sensitivity, cfg.target_resolution,
                              num_agents=num_agents)
+    
+    actor = SPGActor(state_dim=env.num_nodes)
+    critic = SPGCritic(state_dim=env.num_nodes)
 
-    if cfg.agent_type == ('SGD' or 'Random' or 'LOLA'):
+    if cfg.agent_type == 'SPG':
+        pass
+
+
+
+    ######### These are old multi-agent options and may not work
+    elif cfg.agent_type == ('SGD' or 'Random' or 'LOLA'):
         agents = [agent(num_actions=env.num_nodes, learning_rate=cfg.learning_rate,
                             agent_id=env.possible_agents[i], exploration=exploration
                             ) for i in range(num_agents)]

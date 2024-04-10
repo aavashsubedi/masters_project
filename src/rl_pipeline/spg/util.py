@@ -1,6 +1,6 @@
 from math import log10, floor
 import torch
-from sklearn.utils.linear_assignment_ import linear_assignment
+from scipy.optimize import linear_sum_assignment as linear_assignment
 
 def str2bool(v):
       return v.lower() in ('true', '1')

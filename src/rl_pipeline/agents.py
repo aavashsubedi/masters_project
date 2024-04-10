@@ -6,10 +6,92 @@ from torch.distributions.categorical import Categorical
 from torch.nn import functional as F
 import wandb
 from rl_utils import *
+from spg.layers import Sinkhorn
+from scipy.optimize import linear_sum_assignment as linear_assignment
+from torch.autograd import Variable
+from pathos.multiprocessing import ProcessingPool as Pool
+from spg.util import parallel_matching
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 """All agents need a select_action() and update() function"""
+
+class SPGActor(nn.Module):
+    def __init__(self, state_dim, hidden_dim=128, sinkhorn_iters=5, sinkhorn_tau=1):
+        super(Actor, self).__init__()
+        self.embedding = nn.Linear(1, hidden_dim) # Embed state to high dim
+        self.sinkhorn = Sinkhorn(state_dim, sinkhorn_iters, sinkhorn_tau)
+        self.gru = nn.GRU(1, hidden_dim)
+        self.fc1 = nn.Linear(self.hidden_dim, state_dim)
+        self.round = linear_assignment
+        self.init_h = torch.zeros(1, hidden_dim, device=device)
+
+    def forward(self, x): # State is allocation 
+        """
+        x is [batch_size, state_dim, 1]
+        """
+        batch_size = x.size()[0]
+        # Embedding state to high dimension
+        x = F.leaky_relu(self.embedding(x))
+        x = torch.transpose(x, 0, 1)
+
+        # Init hidden state
+        init_h = self.init_h.unsqueeze(1).repeat(1, batch_size, 1)
+        h_last, _ = self.gru(x, init_h)
+        # h_last should be [state_dim, batch_size, decoder_dim]
+        x = torch.transpose(h_last, 0, 1)
+        # transform to [batch_size, state_dim, state_dim]
+        M = self.fc1(x)
+        psi = self.sinkhorn(M) # Doubly-stochastic
+
+        # Round doubly-stochastic psi to permutation matrix
+        # Hungarian algorithm
+        batch = psi.data.cpu().numpy()
+        perms = []
+        for i in range(batch_size):
+            perm = torch.zeros(self.n_nodes, self.n_nodes)                   
+            matching = self.round(-batch[i])
+            perm[matching[:,0], matching[:,1]] = 1
+            perms.append(perm)
+        perms = torch.stack(perms, device=device)
+
+        return psi, perms
+
+
+class SPGCritic(nn.Module):
+    def __init__(self, state_dim, hidden_dim=128):
+        super(SPGCritic, self).__init__()
+        self.embeddingX = nn.Linear(1, hidden_dim) # Embed state to high dim
+        self.embeddingP = nn.Linear(state_dim, hidden_dim) # Embed action
+        self.combine = nn.Linear(hidden_dim, hidden_dim) # Fuse embeddings with element-wise sum
+        self.gru = nn.GRU(hidden_dim, hidden_dim)
+        self.init_h = torch.zeros(1, hidden_dim, device=device)
+
+        self.fc1 = nn.Linear(hidden_dim, 1)
+        self.fc2 = nn.Linear(state_dim, 1)
+        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
+
+    def forward(self, x, p):
+        batch_size = x.size()[0]
+        x = F.leaky_relu(self.bn1(self.embeddingX(x)))
+        p = F.leaky_relu(self.bn2(self.embeddingP(p)))
+        xp = F.leaky_relu(self.bn3(self.combine(x + p)))
+        x = torch.transpose(xp, 0, 1)
+        init_hx = self.init_hx.unsqueeze(1).repeat(1, batch_size, 1)
+        h_last, hidden_state = self.gru(x, init_hx)
+
+        # h_last should be [n_nodes, batch_size, decoder_dim]
+        x = torch.transpose(h_last, 0, 1)
+        x = F.leaky_relu(self.fc3(x))
+        out = self.fc1(x)
+        out = self.fc2(torch.transpose(out, 1, 2))
+        # out is [batch_size, 1, 1]
+        return out 
+
+
+################################
+# The following agents were for the multi-agent environment which I have ruined and turned into a single-agent env.
+# They may not work anymore
 
 class SGD:
     def __init__(self, num_actions, agent_id, learning_rate, batch_size, exploration=0.1):
