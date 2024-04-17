@@ -31,12 +31,8 @@ def main(cfg):
     env = InterferometerEnv(cfg.target_sensitivity, cfg.target_resolution,
                              num_agents=num_agents)
     
-    actor = SPGActor(state_dim=env.num_nodes)
-    critic = SPGCritic(state_dim=env.num_nodes)
-
     if cfg.agent_type == 'SPG':
         pass
-
 
 
     ######### These are old multi-agent options and may not work

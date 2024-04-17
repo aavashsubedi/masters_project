@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
+import torch.optim as optim, lr_scheduler
 from torch.distributions.categorical import Categorical
 from torch.nn import functional as F
 import wandb
@@ -87,6 +87,91 @@ class SPGCritic(nn.Module):
         out = self.fc2(torch.transpose(out, 1, 2))
         # out is [batch_size, 1, 1]
         return out 
+    
+
+class SPG(nn.Module):
+    def __init__(self, num_nodes, actor_lr, critic_lr,
+                actor_lr_decay_step, actor_lr_decay_rate,
+                critic_lr_decay_step, critic_lr_decay_rate):
+        super(SPG, self).__init__()
+        self.actor = SPGActor(state_dim=num_nodes).to(device)
+        self.actor_optim = optim.Adam(self.actor.parameters(), lr=actor_lr)
+
+        self.critic = SPGCritic(state_dim=num_nodes).to(device)
+        self.critic_optim = optim.Adam(self.critic.parameters(), lr=critic_lr)
+        self.critic_loss = torch.nn.MSELoss().to(device)
+        self.critic_aux_loss = torch.nn.MSELoss().to(device)
+
+        self.actor_scheduler = lr_scheduler.MultiStepLR(self.actor_optim,
+            range(actor_lr_decay_step, actor_lr_decay_step * 1000,
+                actor_lr_decay_step), gamma=actor_lr_decay_rate)
+        self.critic_scheduler = lr_scheduler.MultiStepLR(self.critic_optim,
+            range(critic_lr_decay_step, critic_lr_decay_step * 1000,
+                critic_lr_decay_step), gamma=critic_lr_decay_rate)
+
+        # Instantiate replay buffer
+        observation_shape = [num_nodes, 1]
+        self.replay_buffer = ReplayBuffer(10000, action_shape=[num_nodes, num_nodes], 
+                observation_shape=[num_nodes, 1])
+        
+
+    def select_action(self, state, noise_clip=0.5):
+        try:
+            state = torch.clone(state, dtype=torch.float, device=device).detach().unsqueeze(0)
+        except TypeError:
+            state = torch.tensor(state, dtype=torch.float, device=device).unsqueeze(0)
+
+        with torch.no_grad():
+            action = self.actor(state).cpu().data.numpy().flatten()
+        action += noise_clip * np.random.normal(0, 1, size=action.shape)
+
+        return np.clip(action, -1, 1)
+        
+
+    def update(self):
+        if len(self.buffer) < self.batch_size:
+            return
+        states, actions, rewards, next_states, dones = self.buffer.sample(self.batch_size)
+
+        # Compute Q(s_t, mu(s_t)=a_t)
+        # size is [batch_size, 1]
+        # N.B. We use the actions from the replay buffer to update the critic
+        # a_batch_t are the hard permutations
+        hard_Q = critic(s_batch, a_batch).squeeze(2)
+        critic_out = critic_loss(hard_Q, targets)
+        if not args['disable_critic_aux_loss']:
+            soft_Q = critic(s_batch, psi_batch).squeeze(2)
+            critic_aux_out = critic_aux_loss(soft_Q, hard_Q.detach())
+            critic_optim.zero_grad()
+            (critic_out + critic_aux_out).backward()
+        else:
+            critic_optim.zero_grad()
+            critic_out.backward() 
+        # clip gradient norms
+        torch.nn.utils.clip_grad_norm(critic.parameters(),
+            args['max_grad_norm'], norm_type=2)
+        critic_optim.step()
+        critic_scheduler.step()                 
+        
+        critic_optim.zero_grad()                
+        actor_optim.zero_grad()
+        soft_action, _ = actor(s_batch, do_round=False)
+        # N.B. we use the action just computed from the actor net here, which 
+        # will be used to compute the actor gradients
+        # compute gradient of critic network w.r.t. actions, grad Q_a(s,a)
+        soft_critic_out = critic(s_batch, soft_action).squeeze(2).mean()
+        actor_loss = -soft_critic_out
+        actor_loss.backward()
+
+        # clip gradient norms
+        torch.nn.utils.clip_grad_norm(actor.parameters(),
+            args['max_grad_norm'], norm_type=2)
+
+        actor_optim.step()
+        actor_scheduler.step()
+
+
+        return None
 
 
 ################################
