@@ -8,6 +8,44 @@ from scipy.spatial.distance import jensenshannon
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+class Sinkhorn(nn.Module):
+    """
+    SinkhornNorm layer from https://openreview.net/forum?id=Byt3oJ-0W
+    
+    If L is too large or tau is too small, gradients will disappear 
+    and cause the network to NaN out!
+    """    
+    def __init__(self, n_nodes, sinkhorn_iters=5, tau=0.01):
+        super(Sinkhorn, self).__init__()
+        self.n_nodes = n_nodes
+        self.tau = tau
+        self.sinkhorn_iters = sinkhorn_iters
+
+    def row_norm(self, x):
+        """Unstable implementation"""
+        #y = torch.matmul(torch.matmul(x, self.ones), torch.t(self.ones))
+        #return torch.div(x, y)
+        """Stable, log-scale implementation"""
+        return x - logsumexp(x, dim=2, keepdim=True)
+
+    def col_norm(self, x):
+        """Unstable implementation"""
+        #y = torch.matmul(torch.matmul(self.ones, torch.t(self.ones)), x)
+        #return torch.div(x, y)
+        """Stable, log-scale implementation"""
+        return x - logsumexp(x, dim=1, keepdim=True)
+
+    def forward(self, x, eps=1e-6):
+        """ 
+            x: [batch_size, N, N]
+        """
+        x = x / self.tau
+        for _ in range(self.sinkhorn_iters):
+            x = self.row_norm(x)
+            x = self.col_norm(x)
+        return torch.exp(x) + eps
+
+
 # https://github.com/openai/baselines/blob/master/baselines/ddpg/memory.py
 
 class RingBuffer:
@@ -211,6 +249,31 @@ def compute_jensen(hist_1, hist_2):
     hist_1 = hist_1 / np.sum(hist_1)
     hist_2 = hist_2 / np.sum(hist_2)
     return jensenshannon(hist_1, hist_2)
+
+
+def logsumexp(inputs, dim=None, keepdim=False):
+    """Numerically stable logsumexp.
+
+    Args:
+        inputs: A Variable with any shape.
+        dim: An integer.
+        keepdim: A boolean.
+
+    Returns:
+        Equivalent of log(sum(exp(inputs), dim=dim, keepdim=keepdim)).
+    """
+    # For a 1-D array x (any array along a single dimension),
+    # log sum exp(x) = s + log sum exp(x - s)
+    # with s = max(x) being a common choice.
+    if dim is None:
+        inputs = inputs.view(-1)
+        dim = 0
+    s, _ = torch.max(inputs, dim=dim, keepdim=True)
+    outputs = s + (inputs - s).exp().sum(dim=dim, keepdim=True).log()
+    if not keepdim:
+        outputs = outputs.squeeze(dim)
+    return outputs
+
 
 # The reward of players 1 or 2 (2 player case for now)
 def _grad_reward(reward_func): return torch.autograd.grad(reward_func)

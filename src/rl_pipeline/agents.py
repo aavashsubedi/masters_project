@@ -1,12 +1,12 @@
 import numpy as np
 import torch
+import wandb
 import torch.nn as nn
-import torch.optim as optim, lr_scheduler
+import torch.optim as optim
+from torch.optim import lr_scheduler
 from torch.distributions.categorical import Categorical
 from torch.nn import functional as F
-import wandb
 from rl_utils import *
-from spg.layers import Sinkhorn
 from scipy.optimize import linear_sum_assignment as linear_assignment
 from torch.autograd import Variable
 from pathos.multiprocessing import ProcessingPool as Pool
@@ -18,10 +18,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class SPGActor(nn.Module):
     def __init__(self, state_dim, hidden_dim=128, sinkhorn_iters=5, sinkhorn_tau=1):
-        super(Actor, self).__init__()
+        super(SPGActor, self).__init__()
+        self.hidden_dim = hidden_dim
+        self.state_dim = state_dim
         self.embedding = nn.Linear(1, hidden_dim) # Embed state to high dim
         self.sinkhorn = Sinkhorn(state_dim, sinkhorn_iters, sinkhorn_tau)
-        self.gru = nn.GRU(1, hidden_dim)
+        self.gru = nn.GRU(hidden_dim, hidden_dim)
         self.fc1 = nn.Linear(self.hidden_dim, state_dim)
         self.round = linear_assignment
         self.init_h = torch.zeros(1, hidden_dim, device=device)
@@ -30,36 +32,46 @@ class SPGActor(nn.Module):
         """
         x is [batch_size, state_dim, 1]
         """
+        if x.dtype !=torch.float32:
+            x = torch.tensor(x, dtype=torch.float32, device=device)
+        #import pdb; pdb.set_trace()
         batch_size = x.size()[0]
         # Embedding state to high dimension
+        #import pdb; pdb.set_trace()
         x = F.leaky_relu(self.embedding(x))
         x = torch.transpose(x, 0, 1)
-
+        
+        # x size [1, 128, 1]
+        #import pdb; pdb.set_trace()
         # Init hidden state
         init_h = self.init_h.unsqueeze(1).repeat(1, batch_size, 1)
         h_last, _ = self.gru(x, init_h)
+        #import pdb; pdb.set_trace()
         # h_last should be [state_dim, batch_size, decoder_dim]
         x = torch.transpose(h_last, 0, 1)
         # transform to [batch_size, state_dim, state_dim]
+        #import pdb; pdb.set_trace()
         M = self.fc1(x)
         psi = self.sinkhorn(M) # Doubly-stochastic
+        #import pdb; pdb.set_trace()
 
         # Round doubly-stochastic psi to permutation matrix
         # Hungarian algorithm
         batch = psi.data.cpu().numpy()
         perms = []
         for i in range(batch_size):
-            perm = torch.zeros(self.n_nodes, self.n_nodes)                   
-            matching = self.round(-batch[i])
-            perm[matching[:,0], matching[:,1]] = 1
+            perm = torch.zeros(self.state_dim, self.state_dim)                
+            # Contains indices of row, then column in 2nd array   
+            matching = self.round(-batch[i]) 
+            perm[matching[0], matching[1]] = 1
             perms.append(perm)
-        perms = torch.stack(perms, device=device)
+        perms = torch.stack(perms).to(device)
 
         return psi, perms
 
 
 class SPGCritic(nn.Module):
-    def __init__(self, state_dim, hidden_dim=128):
+    def __init__(self, state_dim, hidden_dim=197):
         super(SPGCritic, self).__init__()
         self.embeddingX = nn.Linear(1, hidden_dim) # Embed state to high dim
         self.embeddingP = nn.Linear(state_dim, hidden_dim) # Embed action
@@ -111,7 +123,7 @@ class SPG(nn.Module):
 
         # Instantiate replay buffer
         observation_shape = [num_nodes, 1]
-        self.replay_buffer = ReplayBuffer(10000, action_shape=[num_nodes, num_nodes], 
+        self.replay_buffer = Memory(10000, action_shape=[num_nodes, num_nodes], 
                 observation_shape=[num_nodes, 1])
         
 
@@ -137,7 +149,7 @@ class SPG(nn.Module):
         # size is [batch_size, 1]
         # N.B. We use the actions from the replay buffer to update the critic
         # a_batch_t are the hard permutations
-        hard_Q = critic(s_batch, a_batch).squeeze(2)
+        hard_Q = self.critic(s_batch, a_batch).squeeze(2)
         critic_out = critic_loss(hard_Q, targets)
         if not args['disable_critic_aux_loss']:
             soft_Q = critic(s_batch, psi_batch).squeeze(2)

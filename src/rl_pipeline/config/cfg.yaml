@@ -4,8 +4,19 @@ settings: wandb.Settings(_disable_stats=True)
 num_agents: 2
 episodes: 5
 episode_length: 6
+train_step: 200
 target_sensitivity: 100
 target_resolution: 0.008
 agent_type: SPG # Now SPG sinkhorn only # Random, SGD, LOLA, PPO, DDPG, DQN
 learning_rate: 0.001
 batch_size: 2
+max_grad_norm: 0.5
+actor_lr: 1e-5
+actor_lr_decay_step: 5000
+actor_lr_decay_rate: 0.95
+critic_lr: 2e-4 
+critic_lr_decay_step: 5000
+critic_lr_decay_rate: 0.95
+epsilon: 1
+epsilon_step: 0.01
+epsilon_decay: 200

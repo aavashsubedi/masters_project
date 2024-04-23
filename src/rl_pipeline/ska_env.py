@@ -1,3 +1,4 @@
+import gymnasium as gym
 from gymnasium.spaces import Discrete, MultiDiscrete
 from pettingzoo import AECEnv
 from pettingzoo.utils import agent_selector, wrappers
@@ -12,31 +13,13 @@ from astro_utils import*
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 ## Heavily inspired by https://pettingzoo.farama.org/content/environment_creation/ tutorial
-
-def env(render_mode=None):
-    """
-    The env function often wraps the environment in wrappers by default.
-    You can find full documentation for these methods
-    elsewhere in the developer documentation.
-    """
-    internal_render_mode = render_mode if render_mode != "ansi" else "human"
-    env = InterferometerEnv(render_mode=internal_render_mode)
-    # This wrapper is only for environments which print results to the terminal
-    if render_mode == "ansi":
-        env = wrappers.CaptureStdoutWrapper(env)
-    # this wrapper helps error handling for discrete action spaces
-    env = wrappers.AssertOutOfBoundsWrapper(env)
-    # Provides a wide vareity of helpful user errors
-    # Strongly recommended
-    env = wrappers.OrderEnforcingWrapper(env)
-    return env
+## CHANGED To gym env for single agent
 
 
-class InterferometerEnv(AECEnv):
+class InterferometerEnv(gym.Env):
     """
     The "name" metadata allows the environment to be pretty printed.
     """
-
     metadata = {"render_modes": ["human"], "name": "rps_v2"}
 
     def __init__(self, target_sensitivity, target_resolution,
@@ -53,15 +36,15 @@ class InterferometerEnv(AECEnv):
         """
         self.num_nodes = num_nodes
         self.num_arrays = num_arrays
-        self.target_sensitivity = target_sensitivity
-        self.target_resolution = target_resolution
+        self.target_sensitivity = target_sensitivity # Does nothing
+        self.target_resolution = target_resolution # Does nothing yet
         self.weighting_regime = None
         self.coordinates = np.genfromtxt(coordinate_file, delimiter=',') # Needs to be CPU for plotting
 
         # optional: we can define the observation and action spaces here as attributes to be used in their corresponding methods
-        self._action_spaces = torch.eye(self.num_nodes)[torch.randperm(self.num_nodes)]
-        self._observation_spaces = MultiDiscrete([self.num_arrays for _ in range(self.num_nodes)]) # This is the allocation space of all nodes, which can be allocated to any of n agents
-        self.state = self._observation_spaces.sample() # Allocated node list to use in baseline_dists calculation 
+        self.action_space = torch.eye(self.num_nodes)[torch.randperm(self.num_nodes)]  # Example action space
+        self.observation_space = MultiDiscrete([self.num_arrays] * self.num_nodes)
+        self.state = self.observation_spaces.sample() # Allocated node list to use in baseline_dists calculation 
 
         self.render_mode = render_mode
         self.hists = None # Save histograms of baseline distances for rendering
@@ -69,14 +52,11 @@ class InterferometerEnv(AECEnv):
                              np.array([n/2 for n in range(8)][1:])) / 2
 
     def observation_space(self):
-        return MultiDiscrete([self.num_arrays for _ in range(1, self.num_nodes)]) # (2,1,0,0,1,...)
+        return MultiDiscrete([self.num_arrays] * self.num_nodes) # (2,1,0,0,1,...)
 
     def action_space(self):
         return torch.eye(self.num_nodes)[torch.randperm(self.num_nodes)] # Set of permutations
-        #return Discrete(self.graph.number_of_nodes()) # {0....196} # Change to permutation
-
-    def observe(self, agent):
-        return np.array(self.observations[agent])
+        #return Discrete(self.graph.number_of_nodes()) # {0....196} # Change to permutation space
     
     def calculate_rewards(self):
         jensen_shannon = compute_jensen(self.hists[0], self.hists[1]) # Symmetric
@@ -95,11 +75,11 @@ class InterferometerEnv(AECEnv):
         self._cumulative_reward = 0
         self.termination = False
         self.truncation = False
-        self.infos = {}
-        self.state = torch.tensor(self._observation_spaces.sample(), device=device)
-        self.observation = self._observation_spaces.sample()
+        self.info = {}
+        self.state = torch.tensor(self.observation_space.sample(), device=device).unsqueeze(0).unsqueeze(-1)
+        self.observation = self.observation_space.sample()
 
-        return self.observation, self.infos
+        return self.state, self.infos
 
     def step(self, action):
         """
@@ -112,8 +92,7 @@ class InterferometerEnv(AECEnv):
         self.hists = [self.hists[i] / np.sum(self.hists[i]) for i in range(len(self.hists))] # Normalise histograms
 
         self.calculate_rewards() # Also updates self.rewards
-        self.observation = self.state # observe the current state
-        self._accumulate_rewards() # Adds .rewards to ._cumulative_rewards
+        self.observation = self.state # observe the current state (MDP not POMDP)
 
         if self.render_mode == "human":
             self.render()

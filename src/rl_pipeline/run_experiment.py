@@ -1,10 +1,11 @@
 from ska_env import InterferometerEnv
-import wandb
-import torch
-import hydra
 from rl_utils import setup_wandb
 from agents import *
 from train_agents import *
+
+import wandb
+import torch
+import hydra
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -14,7 +15,7 @@ REGIMES = {'Random': [SGD, train_SGD, 1],
            'PPO': [PPO, train_PPO, None],
            'DDPG': [DDPG, train_DDPG, None], # Only for continuous action spaces!
            'DQN': [DQN, train_DQN, None],
-           'SPG': [SGD, train_SGD, None]}
+           'SPG': [None, train_SPG, None]}
 
 @hydra.main(version_base='1.3', config_path="config/",
              config_name="cfg.yaml")
@@ -28,11 +29,14 @@ def main(cfg):
     except IndexError:
         print("Agent type not valid. Choose from 'Random','SGD','LOLA','PPO'")
 
-    env = InterferometerEnv(cfg.target_sensitivity, cfg.target_resolution,
-                             num_agents=num_agents)
+    env = InterferometerEnv(cfg.target_sensitivity, cfg.target_resolution)
     
     if cfg.agent_type == 'SPG':
-        pass
+        train_SPG(env, num_episodes, episode_length, cfg.actor_lr, cfg.critic_lr,
+                cfg.actor_lr_decay_step, cfg.actor_lr_decay_rate, 
+                cfg.critic_lr_decay_step, cfg.critic_lr_decay_rate,
+                cfg.epsilon, cfg.epsilon_step, cfg.epsilon_decay,
+                cfg.train_step, cfg.batch_size, cfg.max_grad_norm)
 
 
     ######### These are old multi-agent options and may not work

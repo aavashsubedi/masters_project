@@ -3,13 +3,14 @@ import torch
 import os
 import numpy as np
 import torch.optim as optim
+from torch.optim import lr_scheduler
 from agents import SPGActor, SPGCritic
 from agents import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def train_SGD(env, num_episodes, episode_length, actor_lr, critic_lr,
+def train_SPG(env, num_episodes, episode_length, actor_lr, critic_lr,
                 actor_lr_decay_step, actor_lr_decay_rate, 
                 critic_lr_decay_step, critic_lr_decay_rate,
                 epsilon, epsilon_step, epsilon_decay,
@@ -32,7 +33,7 @@ def train_SGD(env, num_episodes, episode_length, actor_lr, critic_lr,
 
     # Instantiate replay buffer
     observation_shape = [env.num_nodes, 1]
-    replay_buffer = ReplayBuffer(10000, action_shape=[env.num_nodes, env.num_nodes], 
+    replay_buffer = Memory(10000, action_shape=[env.num_nodes, env.num_nodes], 
             observation_shape=observation_shape)
     
     for episode in range(num_episodes):
@@ -61,10 +62,10 @@ def train_SGD(env, num_episodes, episode_length, actor_lr, critic_lr,
                         psi[:, idxs[0]] = tmp4
                         psi[:, idxs[1]] = tmp3
                 if train_step > 0 and epsilon > 0.01:
-                    epsilon += epsilon_decay
+                    epsilon -= epsilon_decay
 
                 # apply the permutation to the input
-                solutions = torch.matmul(torch.transpose(states, 1, 2), action)
+                #solutions = torch.matmul(torch.transpose(states, 1, 2), action)
 
                 next_state, reward, done[i], _ = env.step(action)
                 states = next_state
@@ -118,6 +119,29 @@ def train_SGD(env, num_episodes, episode_length, actor_lr, critic_lr,
 
         wandb.log({'Episode Reward': total_reward})
         print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_reward}")
+
+
+def train_SGD(env, agents, num_episodes, episode_length, agent_ids):
+    num_agents = len(agents)
+    
+    for episode in range(num_episodes):
+        states, info = env.reset()
+        done = [False] * num_agents
+        total_rewards = [0] * num_agents
+
+        while not all(done):
+            for _ in range(episode_length):
+                for i in range(num_agents):
+                    action = agents[i].select_action(states[agent_ids[i]])
+                    #print(action)
+                    next_state, reward, done[i], _ = env.step(action)
+                    agents[i].update_weights(states[agent_ids[i]], action, reward)
+                    states[agent_ids[i]] = next_state
+                    total_rewards[i] += list(reward.values())[i]
+        env.close()
+
+        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): total_rewards[i] for i in range(num_agents)})
+        print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_rewards}")
 
 
 def train_LOLA(env, agents, num_episodes, episode_length, agent_ids):
