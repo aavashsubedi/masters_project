@@ -44,7 +44,7 @@ class InterferometerEnv(gym.Env):
         # optional: we can define the observation and action spaces here as attributes to be used in their corresponding methods
         self.action_space = torch.eye(self.num_nodes)[torch.randperm(self.num_nodes)]  # Example action space
         self.observation_space = MultiDiscrete([self.num_arrays] * self.num_nodes)
-        self.state = self.observation_spaces.sample() # Allocated node list to use in baseline_dists calculation 
+        self.state = self.observation_space.sample() # Allocated node list to use in baseline_dists calculation 
 
         self.render_mode = render_mode
         self.hists = None # Save histograms of baseline distances for rendering
@@ -79,25 +79,27 @@ class InterferometerEnv(gym.Env):
         self.state = torch.tensor(self.observation_space.sample(), device=device).unsqueeze(0).unsqueeze(-1)
         self.observation = self.observation_space.sample()
 
-        return self.state, self.infos
+        return self.state, self.info
 
     def step(self, action):
         """
         step(action) takes in an action and needs to update any internal state used by observe() or render()
         """
+        #import pdb; pdb.set_trace()
+        self.state = torch.matmul(action, self.state.float()).long().to(device) # Update state by multiplying by permutation matrix
         self.hists = [np.histogram(baseline_dists(self.coordinates[torch.where(self.state == i)[0].tolist()]),
                                     bins=np.array([n/2 for n in range(8)]),
                                     density=True)[0] for i in range(self.num_arrays)]
 
         self.hists = [self.hists[i] / np.sum(self.hists[i]) for i in range(len(self.hists))] # Normalise histograms
 
-        self.calculate_rewards() # Also updates self.rewards
+        self.calculate_rewards() # Also updates self.reward
         self.observation = self.state # observe the current state (MDP not POMDP)
 
         if self.render_mode == "human":
             self.render()
 
-        return self.observation, self.rewards, self.terminations, self.truncations
+        return self.observation, self.reward, self.termination, self.truncation
 
 
     def render(self):
@@ -108,7 +110,7 @@ class InterferometerEnv(gym.Env):
             
         for i in range(self.num_arrays):
             for n in range(self.num_nodes):
-                if self.state[n] == i:
+                if self.state[0][n] == i: # 0 is the batch dimension
                     plt.plot(self.coordinates[n, 0], self.coordinates[n, 1], '.', color=colours[i], 
                                 label='Array {}'.format(i+1))
                     
@@ -134,11 +136,11 @@ class InterferometerEnv(gym.Env):
 
                 for i in range(int((self.num_arrays+1)/2)):
                     axes[0][i].bar(self.bin_centers, self.hists[i], align='center', width=0.5)
-                    axes[0][i].set_ylim(0, 0.6)
+                    axes[0][i].set_ylim(0, 1.1)
                     try:
                         axes[1][i].bar(self.bin_centers, self.hists[int((self.num_arrays+1)/2)+i],
                                         align='center', width=0.5)
-                        axes[1][i].set_ylim(0, 0.6)
+                        axes[1][i].set_ylim(0, 1.1)
                     except IndexError:
                         pass
         

@@ -9,7 +9,7 @@ target_sensitivity: 100
 target_resolution: 0.008
 agent_type: SPG # Now SPG sinkhorn only # Random, SGD, LOLA, PPO, DDPG, DQN
 learning_rate: 0.001
-batch_size: 2
+batch_size: 1
 max_grad_norm: 0.5
 actor_lr: 1e-5
 actor_lr_decay_step: 5000

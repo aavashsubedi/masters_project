@@ -83,14 +83,19 @@ class SPGCritic(nn.Module):
         self.fc2 = nn.Linear(state_dim, 1)
         self.fc3 = nn.Linear(hidden_dim, hidden_dim)
 
+        self.bn1 = nn.BatchNorm1d(state_dim)
+        self.bn2 = nn.BatchNorm1d(state_dim)
+        self.bn3 = nn.BatchNorm1d(state_dim)
+
     def forward(self, x, p):
         batch_size = x.size()[0]
+        import pdb; pdb.set_trace
         x = F.leaky_relu(self.bn1(self.embeddingX(x)))
         p = F.leaky_relu(self.bn2(self.embeddingP(p)))
         xp = F.leaky_relu(self.bn3(self.combine(x + p)))
         x = torch.transpose(xp, 0, 1)
-        init_hx = self.init_hx.unsqueeze(1).repeat(1, batch_size, 1)
-        h_last, hidden_state = self.gru(x, init_hx)
+        init_h = self.init_h.unsqueeze(1).repeat(1, batch_size, 1)
+        h_last, hidden_state = self.gru(x, init_h)
 
         # h_last should be [n_nodes, batch_size, decoder_dim]
         x = torch.transpose(h_last, 0, 1)

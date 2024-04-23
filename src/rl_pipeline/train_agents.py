@@ -33,7 +33,7 @@ def train_SPG(env, num_episodes, episode_length, actor_lr, critic_lr,
 
     # Instantiate replay buffer
     observation_shape = [env.num_nodes, 1]
-    replay_buffer = Memory(10000, action_shape=[env.num_nodes, env.num_nodes], 
+    replay_buffer = Memory(1000, action_shape=[env.num_nodes, env.num_nodes], 
             observation_shape=observation_shape)
     
     for episode in range(num_episodes):
@@ -64,20 +64,23 @@ def train_SPG(env, num_episodes, episode_length, actor_lr, critic_lr,
                 if train_step > 0 and epsilon > 0.01:
                     epsilon -= epsilon_decay
 
+                wandb.log({'Permutation': action})
+
                 # apply the permutation to the input
                 #solutions = torch.matmul(torch.transpose(states, 1, 2), action)
 
-                next_state, reward, done[i], _ = env.step(action)
+                next_state, reward, done, _ = env.step(action)
                 states = next_state
-                total_reward += reward.values()
-                replay_buffer.append(states.data, action.data.byte(), psi.data, R.data)
+                total_reward += reward
+                replay_buffer.append(states.data, action.data.byte(), psi.data, torch.tensor(reward).unsqueeze(0).data)
 
-                if replay_buffer.nb_entries > batch_size:
+                if (replay_buffer.nb_entries > batch_size) and replay_buffer.nb_entries>2:
                     s_batch, a_batch, psi_batch, r_batch = replay_buffer.sample(batch_size)
-                    s_batch = torch.stack(s_batch)
-                    a_batch = torch.stack(a_batch).float()
-                    psi_batch = torch.stack(psi_batch)
-                    targets = torch.stack(r_batch)
+                    #import pdb; pdb.set_trace()
+                    s_batch = torch.cat((s_batch, s_batch), 0)
+                    a_batch = torch.cat((a_batch, a_batch), 0).float()
+                    psi_batch = torch.cat((psi_batch, psi_batch), 0)
+                    targets = torch.cat((r_batch, r_batch), 0)
 
                     # N.B. We use the actions from the replay buffer to update the critic
                     # a_batch_t are the hard permutations
@@ -90,14 +93,14 @@ def train_SPG(env, num_episodes, episode_length, actor_lr, critic_lr,
                     (critic_out + critic_aux_out).backward()
 
                     # clip gradient norms
-                    torch.nn.utils.clip_grad_norm(critic.parameters(),
+                    torch.nn.utils.clip_grad_norm_(critic.parameters(),
                         max_grad_norm, norm_type=2)
                     critic_optim.step()
                     critic_scheduler.step()                 
                     
                     critic_optim.zero_grad()                
                     actor_optim.zero_grad()
-                    soft_action, _ = actor(s_batch, do_round=False)
+                    soft_action, _ = actor(s_batch)
                     # N.B. we use the action just computed from the actor net here, which 
                     # will be used to compute the actor gradients
                     # compute gradient of critic network w.r.t. actions, grad Q_a(s,a)
@@ -106,7 +109,7 @@ def train_SPG(env, num_episodes, episode_length, actor_lr, critic_lr,
                     actor_loss.backward()
 
                     # clip gradient norms
-                    torch.nn.utils.clip_grad_norm(actor.parameters(),
+                    torch.nn.utils.clip_grad_norm_(actor.parameters(),
                         max_grad_norm, norm_type=2)
 
                     actor_optim.step()

@@ -64,9 +64,8 @@ class RingBuffer:
         return self.data[(self.start + idx) % self.maxlen]
 
     def get_batch(self, idxs):
-        torch_idxs = torch.from_numpy((self.start + idxs) % self.maxlen, device=device).long()
+        torch_idxs = torch.from_numpy((self.start + idxs) % self.maxlen).long()
         return self.data[torch_idxs]
-
 
     def append(self, v):
         batch_size = v.shape[0]
@@ -86,7 +85,6 @@ class RingBuffer:
 class Memory:
     def __init__(self, limit, action_shape, observation_shape):
         self.limit = limit
-
         self.observations = RingBuffer(limit, observation_shape)
         self.discrete_actions = RingBuffer(limit, action_shape, dtype='torch.ByteTensor')
         self.dense_actions = RingBuffer(limit, action_shape)
@@ -94,7 +92,8 @@ class Memory:
 
     def sample(self, batch_size):
         # Draw such that we always have a proceeding element.
-        batch_idxs = np.random.random_integers(self.nb_entries - 2, size=batch_size)
+        #import pdb; pdb.set_trace()
+        batch_idxs = np.random.random_integers(self.nb_entries - 2, size=batch_size) # Currently this is always 1 :----/
 
         obs_batch = self.observations.get_batch(batch_idxs)
         discrete_actions_batch = self.discrete_actions.get_batch(batch_idxs)
