@@ -1,9 +1,9 @@
 project_name: "ska_RL"
-wandb: 'offline'
+wandb: 'online'
 settings: wandb.Settings(_disable_stats=True)
 num_agents: 2
 episodes: 5
-episode_length: 6
+episode_length: 200
 train_step: 200
 target_sensitivity: 100
 target_resolution: 0.008
@@ -17,6 +17,6 @@ actor_lr_decay_rate: 0.95
 critic_lr: 2e-4 
 critic_lr_decay_step: 5000
 critic_lr_decay_rate: 0.95
-epsilon: 1
-epsilon_step: 0.01
-epsilon_decay: 200
+epsilon: 0.1
+epsilon_step: 0.0
+epsilon_decay: 0

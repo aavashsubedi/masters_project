@@ -100,7 +100,7 @@ class Memory:
         dense_actions_batch = self.dense_actions.get_batch(batch_idxs)
         reward_batch = self.rewards.get_batch(batch_idxs)
 
-        return obs_batch, discrete_actions_batch, dense_actions_batch, reward_batch
+        return obs_batch.to(device), discrete_actions_batch.to(device), dense_actions_batch.to(device), reward_batch.to(device)
 
     def append(self, obs, discrete_action, dense_action, reward):
         self.observations.append(obs)

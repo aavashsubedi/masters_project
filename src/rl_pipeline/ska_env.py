@@ -85,14 +85,14 @@ class InterferometerEnv(gym.Env):
         """
         step(action) takes in an action and needs to update any internal state used by observe() or render()
         """
-        #import pdb; pdb.set_trace()
         self.state = torch.matmul(action, self.state.float()).long().to(device) # Update state by multiplying by permutation matrix
-        self.hists = [np.histogram(baseline_dists(self.coordinates[torch.where(self.state == i)[0].tolist()]),
+
+        self.hists = [np.histogram(baseline_dists(self.coordinates[torch.where(self.state.flatten() == i)[0].tolist()]),
                                     bins=np.array([n/2 for n in range(8)]),
                                     density=True)[0] for i in range(self.num_arrays)]
 
         self.hists = [self.hists[i] / np.sum(self.hists[i]) for i in range(len(self.hists))] # Normalise histograms
-
+        #import pdb; pdb.set_trace()
         self.calculate_rewards() # Also updates self.reward
         self.observation = self.state # observe the current state (MDP not POMDP)
 

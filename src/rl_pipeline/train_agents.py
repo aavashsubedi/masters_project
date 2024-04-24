@@ -1,5 +1,6 @@
 import wandb
 import torch
+from tqdm import tqdm
 import os
 import numpy as np
 import torch.optim as optim
@@ -19,6 +20,9 @@ def train_SPG(env, num_episodes, episode_length, actor_lr, critic_lr,
     actor = SPGActor(state_dim=env.num_nodes).to(device)
     critic = SPGCritic(state_dim=env.num_nodes).to(device)
 
+    wandb.watch(actor, log='all', log_freq=10)
+    wandb.watch(critic, log='all', log_freq=10)
+
     actor_optim = optim.Adam(actor.parameters(), lr=actor_lr)
     critic_optim = optim.Adam(critic.parameters(), lr=critic_lr)
     critic_loss = torch.nn.MSELoss().to(device)
@@ -36,92 +40,93 @@ def train_SPG(env, num_episodes, episode_length, actor_lr, critic_lr,
     replay_buffer = Memory(1000, action_shape=[env.num_nodes, env.num_nodes], 
             observation_shape=observation_shape)
     
-    for episode in range(num_episodes):
+    for episode in tqdm(range(num_episodes)):
+
         states, info = env.reset()
         done = False
         total_reward = 0
 
-        while not done:
-            for i in range(episode_length):
-                psi, action = actor(states)
-                #print(action)
+        for i in tqdm(range(episode_length)):
+            psi, action = actor(states)
+            #print(action)
 
-                # Epsilon greedy exploration
-                if np.random.rand() < epsilon:
-                # Add noise in the form of 2-exchange neighborhoods
-                    for r in range(2):
-                        # randomly choose two row idxs
-                        idxs = np.random.randint(0, env.num_nodes, size=2)
-                        # swap the two rows
-                        tmp = action[:, idxs[0]].clone()
-                        tmp2 = action[:, idxs[1]].clone()
-                        tmp3 = psi[:, idxs[0]].clone()
-                        tmp4 = psi[:, idxs[1]].clone()
-                        action[:, idxs[0]] = tmp2
-                        action[:, idxs[1]] = tmp
-                        psi[:, idxs[0]] = tmp4
-                        psi[:, idxs[1]] = tmp3
-                if train_step > 0 and epsilon > 0.01:
-                    epsilon -= epsilon_decay
+            # Epsilon greedy exploration
+            if np.random.rand() < epsilon:
+            # Add noise in the form of 2-exchange neighborhoods
+                for r in range(2):
+                    # randomly choose two row idxs
+                    idxs = np.random.randint(0, env.num_nodes, size=2)
+                    # swap the two rows
+                    tmp = action[:, idxs[0]].clone()
+                    tmp2 = action[:, idxs[1]].clone()
+                    tmp3 = psi[:, idxs[0]].clone()
+                    tmp4 = psi[:, idxs[1]].clone()
+                    action[:, idxs[0]] = tmp2
+                    action[:, idxs[1]] = tmp
+                    psi[:, idxs[0]] = tmp4
+                    psi[:, idxs[1]] = tmp3
+            if train_step > 0 and epsilon > 0.01:
+                epsilon -= epsilon_decay
 
-                wandb.log({'Permutation': action})
+            #import pdb; pdb.set_trace()
+            wandb.log({'States': states.cpu().numpy()})
+                       
+            # apply the permutation to the input
+            #solutions = torch.matmul(torch.transpose(states, 1, 2), action)
 
-                # apply the permutation to the input
-                #solutions = torch.matmul(torch.transpose(states, 1, 2), action)
+            next_state, reward, done, _ = env.step(action)
+            states = next_state
+            total_reward += reward
+            replay_buffer.append(states.data, action.data.byte(), psi.data, torch.tensor(reward).unsqueeze(0).data)
 
-                next_state, reward, done, _ = env.step(action)
-                states = next_state
-                total_reward += reward
-                replay_buffer.append(states.data, action.data.byte(), psi.data, torch.tensor(reward).unsqueeze(0).data)
+            if (replay_buffer.nb_entries > batch_size) and replay_buffer.nb_entries>2:
+                s_batch, a_batch, psi_batch, r_batch = replay_buffer.sample(batch_size)
+                s_batch = torch.cat((s_batch, s_batch), 0)
+                a_batch = torch.cat((a_batch, a_batch), 0).float()
+                psi_batch = torch.cat((psi_batch, psi_batch), 0)
+                targets = torch.cat((r_batch, r_batch), 0)
 
-                if (replay_buffer.nb_entries > batch_size) and replay_buffer.nb_entries>2:
-                    s_batch, a_batch, psi_batch, r_batch = replay_buffer.sample(batch_size)
-                    #import pdb; pdb.set_trace()
-                    s_batch = torch.cat((s_batch, s_batch), 0)
-                    a_batch = torch.cat((a_batch, a_batch), 0).float()
-                    psi_batch = torch.cat((psi_batch, psi_batch), 0)
-                    targets = torch.cat((r_batch, r_batch), 0)
+                # N.B. We use the actions from the replay buffer to update the critic
+                # a_batch_t are the hard permutations
+                #import pdb; pdb.set_trace()
+                hard_Q = critic(s_batch, a_batch).squeeze(2)
+                critic_out = critic_loss(hard_Q, targets)
 
-                    # N.B. We use the actions from the replay buffer to update the critic
-                    # a_batch_t are the hard permutations
-                    hard_Q = critic(s_batch, a_batch).squeeze(2)
-                    critic_out = critic_loss(hard_Q, targets)
+                soft_Q = critic(s_batch, psi_batch).squeeze(2)
+                critic_aux_out = critic_aux_loss(soft_Q, hard_Q.detach())
+                critic_optim.zero_grad()
+                (critic_out + critic_aux_out).backward()
 
-                    soft_Q = critic(s_batch, psi_batch).squeeze(2)
-                    critic_aux_out = critic_aux_loss(soft_Q, hard_Q.detach())
-                    critic_optim.zero_grad()
-                    (critic_out + critic_aux_out).backward()
+                # clip gradient norms
+                torch.nn.utils.clip_grad_norm_(critic.parameters(),
+                    max_grad_norm, norm_type=2)
+                critic_optim.step()
+                critic_scheduler.step()                 
+                
+                critic_optim.zero_grad()                
+                actor_optim.zero_grad()
+                soft_action, _ = actor(s_batch)
+                # N.B. we use the action just computed from the actor net here, which 
+                # will be used to compute the actor gradients
+                # compute gradient of critic network w.r.t. actions, grad Q_a(s,a)
+                soft_critic_out = critic(s_batch, soft_action).squeeze(2).mean()
+                actor_loss = -soft_critic_out
+                actor_loss.backward()
 
-                    # clip gradient norms
-                    torch.nn.utils.clip_grad_norm_(critic.parameters(),
-                        max_grad_norm, norm_type=2)
-                    critic_optim.step()
-                    critic_scheduler.step()                 
-                    
-                    critic_optim.zero_grad()                
-                    actor_optim.zero_grad()
-                    soft_action, _ = actor(s_batch)
-                    # N.B. we use the action just computed from the actor net here, which 
-                    # will be used to compute the actor gradients
-                    # compute gradient of critic network w.r.t. actions, grad Q_a(s,a)
-                    soft_critic_out = critic(s_batch, soft_action).squeeze(2).mean()
-                    actor_loss = -soft_critic_out
-                    actor_loss.backward()
+                # clip gradient norms
+                torch.nn.utils.clip_grad_norm_(actor.parameters(),
+                    max_grad_norm, norm_type=2)
 
-                    # clip gradient norms
-                    torch.nn.utils.clip_grad_norm_(actor.parameters(),
-                        max_grad_norm, norm_type=2)
+                actor_optim.step()
+                actor_scheduler.step()
 
-                    actor_optim.step()
-                    actor_scheduler.step()
-
-                if i % 50 == 0:
-                    torch.save(actor, os.path.join(save_dir, 'actor-epoch-{}.pt'.format(i+1)))
-                    torch.save(critic, os.path.join(save_dir, 'critic-epoch-{}.pt'.format(i+1)))
+            #if i % 50 == 0:
+             #   torch.save(actor, os.path.join(save_dir, 'actor-epoch-{}.pt'.format(i+1)))
+              #  torch.save(critic, os.path.join(save_dir, 'critic-epoch-{}.pt'.format(i+1)))
         env.close()
 
-        wandb.log({'Episode Reward': total_reward})
-        print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_reward}")
+        wandb.log({'Episode Reward': total_reward.item()/episode_length})
+        print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_reward.item()/episode_length}\n")
 
 
 def train_SGD(env, agents, num_episodes, episode_length, agent_ids):
@@ -143,8 +148,8 @@ def train_SGD(env, agents, num_episodes, episode_length, agent_ids):
                     total_rewards[i] += list(reward.values())[i]
         env.close()
 
-        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): total_rewards[i] for i in range(num_agents)})
-        print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_rewards}")
+        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): total_rewards[i]/episode_length for i in range(num_agents)})
+        print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_rewards/episode_length}")
 
 
 def train_LOLA(env, agents, num_episodes, episode_length, agent_ids):

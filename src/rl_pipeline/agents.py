@@ -33,7 +33,7 @@ class SPGActor(nn.Module):
         x is [batch_size, state_dim, 1]
         """
         if x.dtype !=torch.float32:
-            x = torch.tensor(x, dtype=torch.float32, device=device)
+            x = x.float()
         #import pdb; pdb.set_trace()
         batch_size = x.size()[0]
         # Embedding state to high dimension
@@ -88,8 +88,8 @@ class SPGCritic(nn.Module):
         self.bn3 = nn.BatchNorm1d(state_dim)
 
     def forward(self, x, p):
-        batch_size = x.size()[0]
         import pdb; pdb.set_trace
+        batch_size = x.size()[0]
         x = F.leaky_relu(self.bn1(self.embeddingX(x)))
         p = F.leaky_relu(self.bn2(self.embeddingP(p)))
         xp = F.leaky_relu(self.bn3(self.combine(x + p)))
