@@ -9,3 +9,5 @@ logs/
 saved_models/
 src\rl_pipeline\SKA_allocation.png
 src\rl_pipeline\SKA_histograms.png
+src/rl_pipeline/SKA_allocation.png
+src/rl_pipeline/SKA_histograms.png
