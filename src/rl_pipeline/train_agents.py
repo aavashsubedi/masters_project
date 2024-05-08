@@ -50,7 +50,7 @@ def train_SPG(env, num_episodes, episode_length, actor_lr, critic_lr,
             psi, action = actor(states)
             #print(action)
 
-            # Epsilon greedy exploration
+            # Epsilon exploration
             if np.random.rand() < epsilon:
             # Add noise in the form of 2-exchange neighborhoods
                 for r in range(2):
@@ -69,7 +69,7 @@ def train_SPG(env, num_episodes, episode_length, actor_lr, critic_lr,
                 epsilon -= epsilon_decay
 
             #import pdb; pdb.set_trace()
-            wandb.log({'States': states.cpu().numpy()})
+            #wandb.log({'States': states.cpu().numpy()})
                        
             # apply the permutation to the input
             #solutions = torch.matmul(torch.transpose(states, 1, 2), action)
@@ -124,8 +124,8 @@ def train_SPG(env, num_episodes, episode_length, actor_lr, critic_lr,
              #   torch.save(actor, os.path.join(save_dir, 'actor-epoch-{}.pt'.format(i+1)))
               #  torch.save(critic, os.path.join(save_dir, 'critic-epoch-{}.pt'.format(i+1)))
         env.close()
-
-        wandb.log({'Episode Reward': total_reward.item()/episode_length})
+        log = total_reward/episode_length
+        wandb.log({'Episode Reward': log})
         print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_reward.item()/episode_length}\n")
 
 

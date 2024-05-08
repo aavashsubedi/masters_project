@@ -24,21 +24,23 @@ def main(cfg):
     num_agents = cfg.num_agents
     num_episodes = cfg.episodes
     episode_length = cfg.episode_length
+    """
     try:
         agent, train, exploration = REGIMES[cfg.agent_type]
     except IndexError:
         print("Agent type not valid. Choose from 'Random','SGD','LOLA','PPO'")
+    """
 
-    env = InterferometerEnv(cfg.target_sensitivity, cfg.target_resolution)
+    env = InterferometerEnv(cfg.target_sensitivity, cfg.target_resolution, cfg.num_antennas)
     
-    if cfg.agent_type == 'SPG':
+    if cfg.agent_type == 'SPG' or cfg.agent_type == 'SPG_MeerKAT':
         train_SPG(env, num_episodes, episode_length, cfg.actor_lr, cfg.critic_lr,
                 cfg.actor_lr_decay_step, cfg.actor_lr_decay_rate, 
                 cfg.critic_lr_decay_step, cfg.critic_lr_decay_rate,
                 cfg.epsilon, cfg.epsilon_step, cfg.epsilon_decay,
                 cfg.train_step, cfg.batch_size, cfg.max_grad_norm)
 
-
+    """
     ######### These are old multi-agent options and may not work
     elif cfg.agent_type == ('SGD' or 'Random' or 'LOLA'):
         agents = [agent(num_actions=env.num_nodes, learning_rate=cfg.learning_rate,
@@ -53,5 +55,5 @@ def main(cfg):
                         batch_size=cfg.batch_size) for i in range(num_agents)]
         train(env, agents, num_episodes=num_episodes, episode_length=episode_length,
                         agent_ids=env.possible_agents)
-
+"""
 main()

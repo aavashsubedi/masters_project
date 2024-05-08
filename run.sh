@@ -12,7 +12,8 @@
 echo "Starting run at: `date`"
 source /share/nas2/lislaam/masters_project/.venv/bin/activate
 echo "Activated virtual environment"
-while true; do
-    pass
- #   python /share/nas2/lislaam/masters_project/src/rl_pipeline/run_experiment.py
-done
+#for i in {1..5}; do
+    #while true; do
+    #pass
+python /share/nas2/lislaam/masters_project/src/rl_pipeline/run_experiment.py
+#done

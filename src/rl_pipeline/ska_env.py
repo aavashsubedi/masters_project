@@ -23,7 +23,7 @@ class InterferometerEnv(gym.Env):
     metadata = {"render_modes": ["human"], "name": "rps_v2"}
 
     def __init__(self, target_sensitivity, target_resolution,
-                 num_nodes=197, num_arrays=2,
+                 num_nodes, num_arrays=2,
                  coordinate_file=r"/share/nas2/lislaam/masters_project/src/dataset/ska_xy_coordinates.csv", 
                  render_mode='human'):
         """
@@ -38,8 +38,8 @@ class InterferometerEnv(gym.Env):
         self.num_arrays = num_arrays
         self.target_sensitivity = target_sensitivity # Does nothing
         self.target_resolution = target_resolution # Does nothing yet
-        self.weighting_regime = None
-        self.coordinates = np.genfromtxt(coordinate_file, delimiter=',') # Needs to be CPU for plotting
+        self.coords = np.genfromtxt(coordinate_file, delimiter=',') # All antennae
+        self.coordinates = self.coords[0:self.num_nodes,:] # self.coords[np.random.choice(self.coords.shape[0], num_nodes, replace=False), :] # Needs to be CPU for plotting
 
         # optional: we can define the observation and action spaces here as attributes to be used in their corresponding methods
         self.action_space = torch.eye(self.num_nodes)[torch.randperm(self.num_nodes)]  # Example action space
@@ -59,9 +59,12 @@ class InterferometerEnv(gym.Env):
         #return Discrete(self.graph.number_of_nodes()) # {0....196} # Change to permutation space
     
     def calculate_rewards(self):
-        jensen_shannon = compute_jensen(self.hists[0], self.hists[1]) # Symmetric
-        self.reward = - jensen_shannon 
-        wandb.log({"J-S Divergence": jensen_shannon})
+        avg_hist = np.mean(self.hists, axis=0)
+        self.reward = 0
+        for hist in self.hists:
+            jensen_shannon = compute_jensen(hist, avg_hist) # Symmetric
+            self.reward -= jensen_shannon # -ve sum of J-S divergences
+        #wandb.log({"J-S Divergence": jensen_shannon})
         return None
 
     def close(self):
@@ -78,6 +81,7 @@ class InterferometerEnv(gym.Env):
         self.info = {}
         self.state = torch.tensor(self.observation_space.sample(), device=device).unsqueeze(0).unsqueeze(-1)
         self.observation = self.observation_space.sample()
+        #self.coordinates = self.coords[np.random.choice(self.coords.shape[0], self.num_nodes, replace=False), :] # New antennas
 
         return self.state, self.info
 
@@ -92,8 +96,9 @@ class InterferometerEnv(gym.Env):
                                     density=True)[0] for i in range(self.num_arrays)]
 
         self.hists = [self.hists[i] / np.sum(self.hists[i]) for i in range(len(self.hists))] # Normalise histograms
-        #import pdb; pdb.set_trace()
+
         self.calculate_rewards() # Also updates self.reward
+        wandb.log({'Reward': self.reward.item()})
         self.observation = self.state # observe the current state (MDP not POMDP)
 
         if self.render_mode == "human":
@@ -129,7 +134,7 @@ class InterferometerEnv(gym.Env):
                 else:
                     for i in range(self.num_arrays):
                         axes[i].bar(self.bin_centers, self.hists[i], align='center', width=0.5)
-                        axes[i].set_ylim(0, 0.6)
+                        axes[i].set_ylim(0, 1.1)
             
             else:
                 fig, axes = plt.subplots(2, int((self.num_arrays+1)/2), figsize=(15, 5))
