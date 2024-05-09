@@ -47,8 +47,8 @@ def train_LOLA(env, agents, num_episodes, episode_length, agent_ids):
                 total_rewards[i] += list(reward.values())[i]
         env.close()
 
-        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): total_rewards[i] for i in range(num_agents)})
-        print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_rewards}")
+        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): total_rewards[i]/episode_length for i in range(num_agents)})
+        print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_rewards/episode_length}")
 
 
 def train_PPO(env, agents, num_episodes, episode_length, agent_ids):

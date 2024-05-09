@@ -32,13 +32,13 @@ def main(cfg):
 
     if cfg.agent_type == ('SGD' or 'Random' or 'LOLA'):
         agents = [agent(num_actions=env.num_nodes, learning_rate=cfg.learning_rate,
-                            agent_id=env.possible_agents[i], exploration=exploration
-                            ) for i in range(num_agents)]
+                            agent_id=env.possible_agents[i], exploration=exploration, 
+                            batch_size=cfg.batch_size) for i in range(num_agents)]
         train(env, agents, num_episodes=num_episodes, episode_length=episode_length,
                         agent_ids=env.possible_agents)
         
     else:
-        agents = [agent(num_actions=env.num_nodes, num_states=env.num_nodes, 
+        agents = [agent(num_actions=env.num_nodes,
                         learning_rate=cfg.learning_rate, agent_id=env.possible_agents[i], 
                         batch_size=cfg.batch_size) for i in range(num_agents)]
         train(env, agents, num_episodes=num_episodes, episode_length=episode_length,

@@ -82,13 +82,14 @@ class InterferometerEnv(AECEnv):
 
     def observe(self, agent):
         return np.array(self.observations[agent])
-    
+
     def calculate_rewards(self):
+        avg_hist = np.mean(self.hists, axis=0)
         for n in range(self.num_agents): # Update rewards
-            jensen_shannon = compute_jensen(self.hists[0], self.hists[1]) # Symmetric
-            self.rewards[self.agents[n]] = - jensen_shannon #-MSE(array_sensitivity, self.target_sensitivity) - \
-             #                               MSE(array_resolution, self.target_resolution)
-        wandb.log({"J-S Divergence": jensen_shannon})
+            jensen_shannon = compute_jensen(self.hists[n], avg_hist) # Symmetric
+            import pdb; pdb.set_trace()
+            self.rewards[self.agents[n]] -= jensen_shannon
+        #wandb.log({"J-S Divergence": jensen_shannon})
         return #array_sensitivity, array_resolution
 
     def close(self):
