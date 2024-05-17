@@ -56,7 +56,8 @@ class InterferometerEnv(AECEnv):
         self.target_sensitivity = target_sensitivity
         self.target_resolution = target_resolution
         self.weighting_regime = None
-        self.coordinates = np.genfromtxt(coordinate_file, delimiter=',') # Needs to be CPU for plotting
+        self.coords = np.genfromtxt(coordinate_file, delimiter=',')
+        self.coordinates = self.coords[np.random.choice(self.coords.shape[0], num_nodes, replace=False), :] # self.coords[0:self.num_nodes,:] # Needs to be CPU for plotting
 
         self.possible_agents = ["player_" + str(r) for r in range(self.agent_num)]
         # Mapping between agent name and ID
@@ -85,9 +86,9 @@ class InterferometerEnv(AECEnv):
 
     def calculate_rewards(self):
         avg_hist = np.mean(self.hists, axis=0)
+        self.rewards = {agent: 0 for agent in self.agents}
         for n in range(self.num_agents): # Update rewards
             jensen_shannon = compute_jensen(self.hists[n], avg_hist) # Symmetric
-            import pdb; pdb.set_trace()
             self.rewards[self.agents[n]] -= jensen_shannon
         #wandb.log({"J-S Divergence": jensen_shannon})
         return #array_sensitivity, array_resolution
@@ -111,6 +112,8 @@ class InterferometerEnv(AECEnv):
         # Cyclic stepping through the agents list.
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.next()
+
+        self.coordinates = self.coords[np.random.choice(self.coords.shape[0], self.num_nodes, replace=False), :] # New coords
 
         return self.observations, self.infos
 

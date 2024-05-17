@@ -23,7 +23,7 @@ def train_SGD(env, agents, num_episodes, episode_length, agent_ids):
                     total_rewards[i] += list(reward.values())[i]
         env.close()
 
-        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): total_rewards[i] for i in range(num_agents)})
+        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): total_rewards[i]/episode_length for i in range(num_agents)})
         print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_rewards}")
 
 
@@ -74,7 +74,7 @@ def train_PPO(env, agents, num_episodes, episode_length, agent_ids):
             states = next_states
         env.close()
 
-        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): episode_rewards[i] for i in range(num_agents)})
+        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): episode_rewards[i]/episode_length for i in range(num_agents)})
         print(f"Episode {episode}: Total rewards: {episode_rewards}")
 
 
@@ -99,7 +99,7 @@ def train_DDPG(env, agents, num_episodes, episode_length, agent_ids):
             states = next_states
         env.close()
 
-        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): episode_rewards[i] for i in range(num_agents)})
+        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): episode_rewards[i]/episode_length for i in range(num_agents)})
         print(f"Episode {episode}: Total rewards: {episode_rewards}")
 
 
@@ -124,5 +124,5 @@ def train_DQN(env, agents, num_episodes, episode_length, agent_ids):
                 episode_rewards = [x + y for x, y in zip(episode_rewards, rewards.values())]
         env.close()
 
-        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): episode_rewards[i] for i in range(num_agents)})
+        wandb.log({'{0} Episode Reward'.format(agent_ids[i]): episode_rewards[i]/episode_length for i in range(num_agents)})
         print(f"Episode {episode}: Total rewards: {episode_rewards}")
