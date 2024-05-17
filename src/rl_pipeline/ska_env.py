@@ -23,7 +23,7 @@ class InterferometerEnv(gym.Env):
     metadata = {"render_modes": ["human"], "name": "rps_v2"}
 
     def __init__(self, target_sensitivity, target_resolution,
-                 num_nodes, num_arrays=2,
+                 num_nodes, num_arrays,
                  coordinate_file=r"/share/nas2/lislaam/masters_project/src/dataset/ska_xy_coordinates.csv", 
                  render_mode='human'):
         """
@@ -39,7 +39,7 @@ class InterferometerEnv(gym.Env):
         self.target_sensitivity = target_sensitivity # Does nothing
         self.target_resolution = target_resolution # Does nothing yet
         self.coords = np.genfromtxt(coordinate_file, delimiter=',') # All antennae
-        self.coordinates = self.coords[0:self.num_nodes,:] # self.coords[np.random.choice(self.coords.shape[0], num_nodes, replace=False), :] # Needs to be CPU for plotting
+        self.coordinates = self.coords[np.random.choice(self.coords.shape[0], num_nodes, replace=False), :] # self.coords[0:self.num_nodes,:] # Needs to be CPU for plotting
 
         # optional: we can define the observation and action spaces here as attributes to be used in their corresponding methods
         self.action_space = torch.eye(self.num_nodes)[torch.randperm(self.num_nodes)]  # Example action space
@@ -60,10 +60,13 @@ class InterferometerEnv(gym.Env):
     
     def calculate_rewards(self):
         avg_hist = np.mean(self.hists, axis=0)
-        self.reward = 0
+        rew = 0
+        #self.reward = - compute_jensen(self.hists[0], self.hists[1])
         for hist in self.hists:
             jensen_shannon = compute_jensen(hist, avg_hist) # Symmetric
-            self.reward -= jensen_shannon # -ve sum of J-S divergences
+            rew -= jensen_shannon # -ve sum of J-S divergences
+
+        self.reward = rew
         #wandb.log({"J-S Divergence": jensen_shannon})
         return None
 
@@ -81,7 +84,7 @@ class InterferometerEnv(gym.Env):
         self.info = {}
         self.state = torch.tensor(self.observation_space.sample(), device=device).unsqueeze(0).unsqueeze(-1)
         self.observation = self.observation_space.sample()
-        #self.coordinates = self.coords[np.random.choice(self.coords.shape[0], self.num_nodes, replace=False), :] # New antennas
+        self.coordinates = self.coords[np.random.choice(self.coords.shape[0], self.num_nodes, replace=False), :] # New antennas
 
         return self.state, self.info
 

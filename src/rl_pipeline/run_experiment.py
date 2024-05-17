@@ -31,9 +31,9 @@ def main(cfg):
         print("Agent type not valid. Choose from 'Random','SGD','LOLA','PPO'")
     """
 
-    env = InterferometerEnv(cfg.target_sensitivity, cfg.target_resolution, cfg.num_antennas)
+    env = InterferometerEnv(cfg.target_sensitivity, cfg.target_resolution, cfg.num_antennas, num_arrays=cfg.num_agents)
     
-    if cfg.agent_type == 'SPG' or cfg.agent_type == 'SPG_MeerKAT':
+    if cfg.agent_type == 'SPG' or cfg.agent_type == 'SPG_MeerKAT' or cfg.agent_type == 'SPG_diff_reward' or cfg.agent_type=='SPG_Random':
         train_SPG(env, num_episodes, episode_length, cfg.actor_lr, cfg.critic_lr,
                 cfg.actor_lr_decay_step, cfg.actor_lr_decay_rate, 
                 cfg.critic_lr_decay_step, cfg.critic_lr_decay_rate,
