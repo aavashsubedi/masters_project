@@ -198,7 +198,7 @@ class InterferometerEnv(AECEnv):
                     except IndexError:
                         pass
         
-            fig.savefig(r'/share/nas2/lislaam/masters_project/src/rl_pipeline/SKA_histograms.png', bbox_inches='tight')
+            #fig.savefig(r'/share/nas2/lislaam/masters_project/src/rl_pipeline/SKA_histograms.png', bbox_inches='tight')
             wandb.log({"Histograms": wandb.Image(fig)})
             plt.close()
         
