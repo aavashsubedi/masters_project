@@ -38,6 +38,7 @@ def train_LOLA(env, agents, num_episodes, episode_length, agent_ids):
         for _ in range(episode_length):
             actions = [] # Track actions for each player so LOLA can update
             for i in range(num_agents):
+                import pdb; pdb.set_trace()
                 action = agents[i].select_action(states[agent_ids[i]])
                 next_state, reward, done[i], _ = env.step(action)
                 actions.append(action)

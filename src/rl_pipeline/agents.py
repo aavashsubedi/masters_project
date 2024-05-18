@@ -12,7 +12,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 """All agents need a select_action() and update() function"""
 
 class SGD:
-    def __init__(self, num_actions, agent_id, learning_rate, batch_size, exploration=0.1):
+    def __init__(self, num_actions, agent_id, learning_rate, batch_size, exploration):
         self.agent_id = agent_id
         self.num_actions = num_actions
         self.learning_rate = learning_rate
@@ -34,7 +34,7 @@ class SGD:
 
 
 class LOLA(nn.Module):
-    def __init__(self, num_actions, agent_id, learning_rate, batch_size, exploration): # exploration not used.
+    def __init__(self, num_actions, agent_id, learning_rate, batch_size): # exploration not used.
         self.agent_id = agent_id
         self.num_actions = num_actions
         self.learning_rate = learning_rate
