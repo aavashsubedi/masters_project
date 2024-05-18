@@ -67,7 +67,7 @@ def train_PPO(env, agents, num_episodes, episode_length, agent_ids):
                 next_state, rewards, done, _ = env.step(action)
                 action = torch.tensor(action, device=device)
                 episode_rewards = [x + y for x, y in zip(episode_rewards, rewards.values())]
-                next_states.append(next_state)
+                next_states = next_state
 
                 agent.update((states[agent_ids[i]], action, 
                               dist.log_prob(action),

@@ -86,7 +86,7 @@ class PPO:
         self.agent_id = agent_id
 
     def select_action(self, state):
-        state_tensor = torch.clone(state, dtype=torch.float, device=device).unsqueeze(0)
+        state_tensor = torch.tensor(state, dtype=torch.float, device=device).unsqueeze(0)
         with torch.no_grad():
             logits = self.policy_net(state_tensor)
             dist = torch.distributions.Categorical(logits=logits)
@@ -95,7 +95,7 @@ class PPO:
 
     def update(self, rollout):
         states, actions, old_log_probs, rewards, next_states, dones = rollout
-        states = torch.clone(states, dtype=torch.float, device=device) # Change type and location
+        states = torch.tensor(states, dtype=torch.float, device=device) # Change type and location
         returns = self._compute_returns(rewards)
         
         for _ in range(400):  # PPO epoch
@@ -244,15 +244,14 @@ class DQN:
         batch = Transition(*zip(*transitions))
 
         state_batch = torch.cat(batch.state)
+        state_batch = torch.tensor(state_batch, dtype=torch.float32, device=device)
         action_batch = torch.tensor(batch.action, device=device).unsqueeze(1)
         reward_batch = torch.tensor(batch.reward, device=device)
         next_state_batch = torch.cat(batch.next_state)
-        import pdb; pdb.set_trace()
         done_mask = [ele[self.agent_id] for ele in batch.done]
 
         import pdb; pdb.set_trace()
         current_q_values = self.q_network(state_batch).gather(1, action_batch)
-        import pdb; pdb.set_trace()
         next_q_values = self.target_network(next_state_batch).max(1)[0].detach()
         expected_q_values = reward_batch + (1 - all(done_mask)) * self.gamma * next_q_values
 
