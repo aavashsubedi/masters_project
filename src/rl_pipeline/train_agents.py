@@ -51,7 +51,7 @@ def train_SPG(env, num_episodes, episode_length, actor_lr, critic_lr,
             #print(action)
 
             # Epsilon exploration
-            if np.random.rand() < epsilon:
+            if np.random.rand() < 1: #epsilon:
             # Add noise in the form of 2-exchange neighborhoods
                 for r in range(2):
                     # randomly choose two row idxs
