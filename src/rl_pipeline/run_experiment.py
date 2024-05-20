@@ -30,7 +30,7 @@ def main(cfg):
     env = InterferometerEnv(cfg.target_sensitivity, cfg.target_resolution,
                              num_agents=num_agents)
 
-    if cfg.agent_type == ('SGD' or 'Random'):
+    if cfg.agent_type=='SGD' or cfg.agent_type=='Random' or cfg.agent_type=='LOLA':
         agents = [agent(num_actions=env.num_nodes, learning_rate=cfg.learning_rate,
                             agent_id=env.possible_agents[i], exploration=exploration, 
                             batch_size=cfg.batch_size) for i in range(num_agents)]

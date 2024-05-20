@@ -165,7 +165,7 @@ class InterferometerEnv(AECEnv):
         for i in range(self.num_agents):
             for n in range(self.num_nodes):
                 if self.alloc[n] == i:
-                    plt.plot(self.coordinates[n, 0], self.coordinates[n, 1], '.', color=colours[i], 
+                    plt.plot(self.coordinates[n, 0], self.coordinates[n, 1], '.', color='k',#colours[i], 
                                 label='Agent {}'.format(i+1))
                     
         #plt.legend()

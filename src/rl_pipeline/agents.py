@@ -34,7 +34,7 @@ class SGD:
 
 
 class LOLA(nn.Module):
-    def __init__(self, num_actions, agent_id, learning_rate, batch_size): # exploration not used.
+    def __init__(self, num_actions, agent_id, learning_rate, batch_size, exploration): # exploration not used.
         self.agent_id = agent_id
         self.num_actions = num_actions
         self.learning_rate = learning_rate
@@ -205,10 +205,13 @@ class DQN:
     def __init__(self, num_states, num_actions, learning_rate, agent_id, 
                 gamma=0.99, epsilon_start=1.0, epsilon_end=0.01, 
                 epsilon_decay=0.995, target_update=10, batch_size=64):
+        # Initialize Q-network and target network
         self.q_network = QNetwork(num_states, num_actions).to(device)
         self.target_network = QNetwork(num_states, num_actions).to(device)
         self.target_network.load_state_dict(self.q_network.state_dict())
         self.target_network.eval()
+        
+        # Optimizer and loss function
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
         self.criterion = nn.MSELoss()
         self.replay_buffer = ReplayBuffer(capacity=10000)
@@ -222,11 +225,14 @@ class DQN:
         self.num_actions = num_actions
         self.agent_id = agent_id
 
+    def decay_epsilon(self):
+        self.epsilon = max(self.epsilon_end, self.epsilon * self.epsilon_decay)
+
     def select_action(self, state):
         try:
-            state = torch.clone(state, dtype=torch.float, device=device).detach().unsqueeze(0)
+            state = torch.clone(state, dtype=torch.float32, device=device).detach().unsqueeze(0)
         except TypeError:
-            state = torch.tensor(state, dtype=torch.float, device=device).unsqueeze(0)
+            state = torch.tensor(state, dtype=torch.float32, device=device).unsqueeze(0)
         
         self.steps_done += 1
         if np.random.rand() > self.epsilon:
@@ -240,29 +246,48 @@ class DQN:
     def update(self):
         if len(self.replay_buffer) < self.batch_size:
             return
+
         transitions = self.replay_buffer.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
 
-        state_batch = torch.cat(batch.state)
+        # Prepare the state, action, reward, next state, and done tensors
+        # State batch: (batch_size, state_dim)
+        state_batch = torch.stack(batch.state).to(device)
         state_batch = torch.tensor(state_batch, dtype=torch.float32, device=device)
+        # Action batch: (batch_size, 1)
         action_batch = torch.tensor(batch.action, device=device).unsqueeze(1)
+        # Reward batch: (batch_size)
         reward_batch = torch.tensor(batch.reward, device=device)
-        next_state_batch = torch.cat(batch.next_state)
-        done_mask = [ele[self.agent_id] for ele in batch.done]
+        reward_batch = torch.tensor(reward_batch, dtype=torch.float32, device=device)
+        # Next state batch: (batch_size, state_dim)
+        next_state_batch = torch.stack(batch.next_state).to(device)
+        next_state_batch = torch.tensor(next_state_batch, dtype=torch.float32, device=device)
+        # Done mask: (batch_size)
+        done_mask = torch.tensor([ele[self.agent_id] for ele in batch.done], dtype=torch.float32, device=device)
 
-        import pdb; pdb.set_trace()
-        current_q_values = self.q_network(state_batch).gather(1, action_batch)
+        # Compute Q values for current states: (batch_size, num_actions)
+        q_values = self.q_network(state_batch)
+        # Gather the Q-values for the actions taken: (batch_size, 1)
+        current_q_values = q_values.gather(1, action_batch)
+        
+        # Compute Q values for next states
         next_q_values = self.target_network(next_state_batch).max(1)[0].detach()
-        expected_q_values = reward_batch + (1 - all(done_mask)) * self.gamma * next_q_values
+        
+        # Compute expected Q values
+        expected_q_values = reward_batch + (1 - done_mask) * self.gamma * next_q_values
 
+        # Compute loss
         loss = self.criterion(current_q_values, expected_q_values.unsqueeze(1))
 
+        # Optimize the model
         self.optimizer.zero_grad()
+        #import pdb; pdb.set_trace()
         loss.backward()
         self.optimizer.step()
 
+        # Update the target network
         if self.steps_done % self.target_update == 0:
             self.target_network.load_state_dict(self.q_network.state_dict())
 
-    def decay_epsilon(self):
-        self.epsilon = max(self.epsilon_end, self.epsilon * self.epsilon_decay)
+        # Decay epsilon
+        self.decay_epsilon()

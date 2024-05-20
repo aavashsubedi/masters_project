@@ -1,16 +1,16 @@
 project_name: "ska_RL_results"
-wandb: 'offline'
+wandb: 'online'
 settings: wandb.Settings(_disable_stats=True)
-num_antennas: 5
-num_agents: 3
+num_antennas: 197
+num_agents: 4
 episodes: 10
 episode_length: 100
 train_step: 200
 target_sensitivity: 100
 target_resolution: 0.008
-agent_type: SGD # Now SPG sinkhorn only # Random, SGD, LOLA, PPO, DDPG, DQN
+agent_type: DQN # Now SPG sinkhorn only # Random, SGD, LOLA, PPO, DDPG, DQN
 learning_rate: 0.001
-batch_size: 1
+batch_size: 3
 max_grad_norm: 0.5
 actor_lr: 1e-5
 actor_lr_decay_step: 100

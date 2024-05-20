@@ -38,8 +38,10 @@ def train_LOLA(env, agents, num_episodes, episode_length, agent_ids):
         for _ in range(episode_length):
             actions = [] # Track actions for each player so LOLA can update
             for i in range(num_agents):
-                import pdb; pdb.set_trace()
-                action = agents[i].select_action(states[agent_ids[i]])
+                try:
+                    action = agents[i].select_action(actions[-1])
+                except:
+                    action = agents[i].select_action(0)
                 next_state, reward, done[i], _ = env.step(action)
                 actions.append(action)
 
@@ -49,7 +51,7 @@ def train_LOLA(env, agents, num_episodes, episode_length, agent_ids):
         env.close()
 
         wandb.log({'{0} Episode Reward'.format(agent_ids[i]): total_rewards[i]/episode_length for i in range(num_agents)})
-        print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_rewards/episode_length}")
+        #print(f"Episode {episode+1}/{num_episodes}, Total Rewards: {total_rewards/episode_length}")
 
 
 def train_PPO(env, agents, num_episodes, episode_length, agent_ids):
@@ -120,7 +122,6 @@ def train_DQN(env, agents, num_episodes, episode_length, agent_ids):
                 agent.replay_buffer.push(states[agent_ids[i]], action, 
                                         next_state[agent_ids[i]], rewards[agent_ids[i]], done)
                 agent.update()
-                agent.decay_epsilon()
                 states[agent_ids[i]] = next_state
                 episode_rewards = [x + y for x, y in zip(episode_rewards, rewards.values())]
         env.close()
