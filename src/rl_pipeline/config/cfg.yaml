@@ -1,9 +1,9 @@
 project_name: "ska_RL_results"
 wandb: 'online'
 settings: wandb.Settings(_disable_stats=True)
-num_antennas: 10
-num_agents: 4
-episodes: 1
+num_antennas: 20
+num_agents: 2
+episodes: 10
 episode_length: 200
 train_step: 200
 target_sensitivity: 100
