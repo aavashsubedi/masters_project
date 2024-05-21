@@ -139,6 +139,9 @@ class InterferometerEnv(AECEnv):
         self.hists = [self.hists[i] / np.sum(self.hists[i]) for i in range(len(self.hists))] # Normalise histograms
 
         self.calculate_rewards() # Updates self.rewards
+        for i in range(self.agent_num):
+            wandb.log({'Player {} Reward'.format(i): self.rewards[self.agents[i]]})
+            
         #wandb.log(self.rewards)
 
         # observe the current state
@@ -165,7 +168,7 @@ class InterferometerEnv(AECEnv):
         for i in range(self.num_agents):
             for n in range(self.num_nodes):
                 if self.alloc[n] == i:
-                    plt.plot(self.coordinates[n, 0], self.coordinates[n, 1], '.', color='k',#colours[i], 
+                    plt.plot(self.coordinates[n, 0], self.coordinates[n, 1], '.', color=colours[i], 
                                 label='Agent {}'.format(i+1))
                     
         #plt.legend()
